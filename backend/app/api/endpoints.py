@@ -433,7 +433,7 @@ def run_full_investigation_analysis(inv_id: str, db: Session = Depends(get_db)):
 # Dataset Ingestion & Profiling
 # -------------------------------------------------------------
 @router.post("/investigations/{inv_id}/datasets/upload")
-async def upload_dataset(
+def upload_dataset(
     inv_id: str,
     file: UploadFile = File(...),
     dataset_name: str = Form(None),
@@ -446,7 +446,7 @@ async def upload_dataset(
         raise HTTPException(status_code=404, detail="Investigation not found")
 
     clean_filename = validate_uploaded_file(file)
-    content = await file.read()
+    content = file.file.read()
     detected_format = validate_file_content(content, clean_filename, getattr(file, "content_type", None))
     name = dataset_name or Path(clean_filename).stem.replace("_", " ").title()
 
@@ -543,6 +543,7 @@ def delete_dataset(inv_id: str, ds_id: str, db: Session = Depends(get_db)):
     ds_name = ds.name
     stored_path = Path(ds.file_path).resolve()
     db.delete(ds)
+    db.flush()
 
     # If no datasets remain and no analysis results exist, revert status to draft
     inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
@@ -923,27 +924,35 @@ def get_platform_settings_status():
 # Closed-Loop Supplemental Evidence & Memory
 # -------------------------------------------------------------
 @router.post("/investigations/{inv_id}/evidence/supplement")
-async def ingest_supplemental_evidence(
+def ingest_supplemental_evidence(
     inv_id: str,
     file: UploadFile = File(...),
     dataset_name: str = Form("Targeted Coolant Flow & Valve Pressure Evidence"),
     db: Session = Depends(get_db)
 ):
+    _validate_inv_id(inv_id)
     inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
 
     clean_filename = validate_uploaded_file(file)
+    content = file.file.read()
+    validate_file_content(content, clean_filename, getattr(file, "content_type", None))
+
     inv_storage = settings.STORAGE_DIR / inv_id
     inv_storage.mkdir(parents=True, exist_ok=True)
     file_path = inv_storage / f"supplemental_{clean_filename}"
 
     with open(file_path, "wb") as buffer:
-        content = await file.read()
         buffer.write(content)
 
-    profile_res = inspect_and_profile_dataset(file_path, dataset_name)
-    new_df = load_file_into_dataframe(file_path)
+    try:
+        profile_res = inspect_and_profile_dataset(file_path, dataset_name)
+        new_df = load_file_into_dataframe(file_path)
+    except Exception as e:
+        if file_path.exists():
+            file_path.unlink()
+        raise HTTPException(status_code=400, detail=f"Failed to parse supplemental dataset: {str(e)}")
 
     record = DatasetRecord(
         id=f"DS-SUPP-{uuid.uuid4().hex[:6].upper()}",

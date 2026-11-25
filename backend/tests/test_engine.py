@@ -232,7 +232,9 @@ def test_invalid_file_and_path_traversal_security():
     with pytest.raises(HTTPException):
         validate_uploaded_file(DummyUpload("script.py"))
     with pytest.raises(HTTPException):
-        validate_uploaded_file(DummyUpload("notes.txt"))
+        validate_uploaded_file(DummyUpload("report.pdf"))
+    with pytest.raises(HTTPException):
+        validate_uploaded_file(DummyUpload("legacy.xls"))
 
 def test_pii_detection_and_masking():
     from backend.app.engine.profiling import scan_dataframe_for_pii, mask_dataframe_pii
