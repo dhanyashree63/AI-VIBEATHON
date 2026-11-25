@@ -5,7 +5,7 @@ import uuid
 import shutil
 from pathlib import Path
 from typing import Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import pandas as pd
@@ -13,6 +13,7 @@ import pandas as pd
 from backend.app.core.config import settings
 from backend.app.core.security import validate_uploaded_file, validate_file_content, detect_pii, sanitize_filename
 from backend.app.engine.database import (
+    SessionLocal,
     get_db,
     Investigation,
     DatasetRecord,
@@ -25,6 +26,7 @@ from backend.app.engine.ingestion import inspect_and_profile_dataset, load_file_
 from backend.app.engine.profiling import mask_dataframe_pii
 from backend.app.engine.data_fusion import identify_candidate_join_keys, fuse_datasets
 from backend.app.engine.anomaly_detection import detect_production_anomalies, extract_timeseries_chart_data
+from backend.app.engine.discovery_engine import run_autonomous_discovery
 from backend.app.engine.hypothesis_generation import generate_competing_explanations
 from backend.app.engine.evidence_scoring import compute_uncertainty_metrics
 from backend.app.engine.next_best_evidence import generate_evidence_recommendations
@@ -44,6 +46,9 @@ class InvestigationUpdatePayload(BaseModel):
     status: Optional[str] = None
     budget_limit: Optional[float] = None
     time_limit_days: Optional[int] = None
+
+class FindingUpdatePayload(BaseModel):
+    marked_for_investigation: bool
 
 def _validate_inv_id(inv_id: str) -> str:
     if not inv_id or not INV_ID_PATTERN.match(inv_id):
@@ -195,18 +200,29 @@ def get_investigation(inv_id: str, db: Session = Depends(get_db)):
         "anomalies": [
             {
                 "id": a.id,
+                "dataset_id": a.dataset_id,
                 "title": a.title,
                 "metric": a.metric,
                 "baseline_value": a.baseline_value,
                 "anomaly_value": a.anomaly_value,
                 "percentage_change": a.percentage_change,
                 "severity": a.severity,
+                "priority": getattr(a, "priority", None) or "medium",
+                "priority_score": getattr(a, "priority_score", None) or 50.0,
                 "p_value": a.p_value,
                 "affected_entities": json.loads(a.affected_entities or "[]"),
                 "statistical_summary": json.loads(a.statistical_summary or "{}"),
-                "detected_timestamp": a.detected_timestamp
+                "finding_payload": json.loads(getattr(a, "finding_payload", None) or "{}"),
+                "analysis_version": getattr(a, "analysis_version", None) or 1,
+                "marked_for_investigation": bool(getattr(a, "marked_for_investigation", 0)),
+                "detected_timestamp": a.detected_timestamp,
+                "created_at": a.created_at
             }
-            for a in inv.anomalies
+            for a in sorted(
+                inv.anomalies,
+                key=lambda x: getattr(x, "priority_score", None) or 0.0,
+                reverse=True
+            )
         ],
         "hypotheses": [
             {
@@ -639,50 +655,73 @@ def fuse_investigation_datasets(inv_id: str, db: Session = Depends(get_db)):
     }
 
 # -------------------------------------------------------------
-# Anomaly Discovery
+# Autonomous Pattern Discovery (Step 5)
 # -------------------------------------------------------------
-@router.post("/investigations/{inv_id}/discover")
-def discover_anomalies(inv_id: str, metric_col: str = Form(None), db: Session = Depends(get_db)):
+def _execute_discovery_for_investigation(inv_id: str, db: Session) -> dict[str, Any]:
     inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
 
-    # Load fused dataset or primary dataset
     fused_path = settings.STORAGE_DIR / inv_id / "fused_dataset.csv"
+    ds = db.query(DatasetRecord).filter(DatasetRecord.investigation_id == inv_id).first()
     if fused_path.exists():
         df = pd.read_csv(fused_path)
+        ds_id = ds.id if ds else None
     else:
-        # Fall back to first dataset
-        ds = db.query(DatasetRecord).filter(DatasetRecord.investigation_id == inv_id).first()
         if not ds:
             raise HTTPException(status_code=400, detail="No datasets available to inspect.")
         df = load_file_into_dataframe(ds.file_path)
+        ds_id = ds.id
 
-    anomalies = detect_production_anomalies(df, metric_col=metric_col)
-    
-    # Persist detected anomalies to DB
-    saved_records = []
-    # Clear prior anomalies for fresh discovery
+    existing_versions = [
+        getattr(a, "analysis_version", 1) or 1
+        for a in db.query(AnomalyRecord).filter(AnomalyRecord.investigation_id == inv_id).all()
+    ]
+    next_version = (max(existing_versions) + 1) if existing_versions else 1
+
+    discovery_out = run_autonomous_discovery(
+        df,
+        dataset_id=ds_id,
+        analysis_version=next_version,
+    )
+    findings = discovery_out["findings"]
+    understanding = discovery_out["dataset_understanding"]
+    interpretation = get_ai_provider().interpret_discovery_findings(understanding, findings)
+
+    # Clear prior findings for this investigation to prevent duplicates while advancing version
     db.query(AnomalyRecord).filter(AnomalyRecord.investigation_id == inv_id).delete()
-    
-    for anom in anomalies:
+
+    saved_records = []
+    for f in findings:
         rec = AnomalyRecord(
-            id=f"ANOM-{uuid.uuid4().hex[:8].upper()}",
+            id=f"{inv_id}__{f['id']}",
             investigation_id=inv_id,
-            title=anom["title"],
-            metric=anom["metric"],
-            baseline_value=anom["baseline_value"],
-            anomaly_value=anom["anomaly_value"],
-            percentage_change=anom["percentage_change"],
-            detected_timestamp=str(anom["detected_timestamp"]),
-            affected_entities=json.dumps(anom["affected_entities"]),
-            severity=anom["severity"],
-            p_value=anom["p_value"],
-            statistical_summary=json.dumps(anom["statistical_summary"])
+            dataset_id=ds_id,
+            title=f["title"],
+            metric=f["metric"],
+            baseline_value=f["baseline_value"],
+            anomaly_value=f["anomaly_value"],
+            percentage_change=f["percentage_change"],
+            detected_timestamp=str(f["detected_timestamp"]),
+            affected_entities=json.dumps(f.get("affected_entities", [])),
+            severity=f["severity"],
+            priority=f["priority"],
+            priority_score=f["priority_score"],
+            p_value=f["p_value"],
+            statistical_summary=json.dumps(f.get("measured_values", {})),
+            finding_payload=json.dumps({
+                **f,
+                "dataset_understanding": understanding,
+                "interpretation": interpretation,
+                "performance": discovery_out["performance"],
+                "prioritisation_formula": discovery_out["prioritisation_formula"],
+            }),
+            analysis_version=next_version,
+            marked_for_investigation=0,
         )
         db.add(rec)
         saved_records.append(rec)
-        
+
     db.commit()
 
     if saved_records:
@@ -691,15 +730,106 @@ def discover_anomalies(inv_id: str, metric_col: str = Form(None), db: Session = 
             db=db,
             investigation_id=inv_id,
             event_type="ANOMALY_DISCOVERED",
-            title=f"Anomaly Discovered: {top_anom.title}",
+            title=f"Discovery Scan v{next_version}: {len(saved_records)} Unusual Pattern(s)",
             description=(
-                f"Discovered {top_anom.title} ({top_anom.percentage_change:+.1f}% shift). "
-                f"Baseline: {top_anom.baseline_value} -> Observed: {top_anom.anomaly_value}. Welch's t-test p = {top_anom.p_value}."
+                f"{interpretation.get('overview_interpretation', '')} "
+                f"(Runtime: {discovery_out['performance']['runtime_ms']} ms, "
+                f"Peak memory: {discovery_out['performance']['peak_memory_mb']} MB)."
             ),
-            state_snapshot={"anomaly_id": top_anom.id, "severity": top_anom.severity}
+            state_snapshot={
+                "anomaly_id": top_anom.id,
+                "analysis_version": next_version,
+                "summary": discovery_out["summary"],
+                "performance": discovery_out["performance"],
+            }
         )
 
-    return {"status": "success", "anomalies": anomalies}
+    return {
+        "status": "success",
+        "analysis_version": next_version,
+        "anomalies": findings,
+        "findings": findings,
+        "summary": discovery_out["summary"],
+        "dataset_understanding": understanding,
+        "interpretation": interpretation,
+        "prioritisation_formula": discovery_out["prioritisation_formula"],
+        "performance": discovery_out["performance"],
+    }
+
+
+def _run_discovery_background(inv_id: str) -> None:
+    db = SessionLocal()
+    try:
+        _execute_discovery_for_investigation(inv_id, db)
+        inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
+        if inv:
+            inv.status = "completed" if len(inv.hypotheses) > 0 else "ready"
+            inv.analysis_stage = "completed" if len(inv.hypotheses) > 0 else "pattern_discovery"
+            inv.analysis_error = None
+            db.commit()
+    except Exception as exc:
+        db.rollback()
+        inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
+        if inv:
+            inv.status = "failed"
+            inv.analysis_stage = "failed"
+            inv.analysis_error = str(exc)
+            db.commit()
+    finally:
+        db.close()
+
+
+@router.post("/investigations/{inv_id}/discover")
+def discover_anomalies(
+    inv_id: str,
+    metric_col: str = Form(None),
+    background: bool = Form(False),
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db)
+):
+    _validate_inv_id(inv_id)
+    inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    if len(inv.datasets) == 0:
+        raise HTTPException(status_code=400, detail="No datasets available to inspect.")
+
+    if background and background_tasks is not None:
+        if inv.status == "processing":
+            raise HTTPException(status_code=409, detail="Discovery scan is already running for this investigation.")
+        inv.status = "processing"
+        inv.analysis_stage = "pattern_discovery"
+        inv.analysis_error = None
+        db.commit()
+        background_tasks.add_task(_run_discovery_background, inv_id)
+        return {"status": "processing", "investigation_id": inv_id}
+
+    return _execute_discovery_for_investigation(inv_id, db)
+
+
+@router.patch("/investigations/{inv_id}/findings/{finding_id}")
+def update_finding_status(
+    inv_id: str,
+    finding_id: str,
+    payload: FindingUpdatePayload,
+    db: Session = Depends(get_db)
+):
+    """Marks or unmarks an unusual pattern for further investigation."""
+    _validate_inv_id(inv_id)
+    rec = db.query(AnomalyRecord).filter(
+        AnomalyRecord.id == finding_id,
+        AnomalyRecord.investigation_id == inv_id
+    ).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="Finding not found")
+
+    rec.marked_for_investigation = 1 if payload.marked_for_investigation else 0
+    db.commit()
+    return {
+        "status": "success",
+        "finding_id": rec.id,
+        "marked_for_investigation": bool(rec.marked_for_investigation),
+    }
 
 # -------------------------------------------------------------
 # Competing Explanations Engine

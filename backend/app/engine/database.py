@@ -54,6 +54,7 @@ class AnomalyRecord(Base):
     
     id = Column(String, primary_key=True, index=True)
     investigation_id = Column(String, ForeignKey("investigations.id"), nullable=False)
+    dataset_id = Column(String, nullable=True)
     title = Column(String, nullable=False)
     metric = Column(String, nullable=False)
     baseline_value = Column(Float, nullable=True)
@@ -62,8 +63,13 @@ class AnomalyRecord(Base):
     detected_timestamp = Column(String, nullable=True)
     affected_entities = Column(Text, default="[]")  # JSON list
     severity = Column(String, default="HIGH")  # CRITICAL, HIGH, MEDIUM, LOW
+    priority = Column(String, default="medium")  # high, medium, low
+    priority_score = Column(Float, default=50.0)
     p_value = Column(Float, nullable=True)
     statistical_summary = Column(Text, default="{}")  # JSON
+    finding_payload = Column(Text, default="{}")  # Full Step 5 structured finding JSON
+    analysis_version = Column(Integer, default=1)
+    marked_for_investigation = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     investigation = relationship("Investigation", back_populates="anomalies")
@@ -139,6 +145,20 @@ def init_db():
             conn.execute(text("ALTER TABLE investigations ADD COLUMN analysis_stage VARCHAR DEFAULT 'idle'"))
         if "analysis_error" not in cols:
             conn.execute(text("ALTER TABLE investigations ADD COLUMN analysis_error TEXT"))
+
+        anom_cols = [row[1] for row in conn.execute(text("PRAGMA table_info(anomalies)")).fetchall()]
+        if "dataset_id" not in anom_cols:
+            conn.execute(text("ALTER TABLE anomalies ADD COLUMN dataset_id VARCHAR"))
+        if "priority" not in anom_cols:
+            conn.execute(text("ALTER TABLE anomalies ADD COLUMN priority VARCHAR DEFAULT 'medium'"))
+        if "priority_score" not in anom_cols:
+            conn.execute(text("ALTER TABLE anomalies ADD COLUMN priority_score FLOAT DEFAULT 50.0"))
+        if "finding_payload" not in anom_cols:
+            conn.execute(text("ALTER TABLE anomalies ADD COLUMN finding_payload TEXT DEFAULT '{}'"))
+        if "analysis_version" not in anom_cols:
+            conn.execute(text("ALTER TABLE anomalies ADD COLUMN analysis_version INTEGER DEFAULT 1"))
+        if "marked_for_investigation" not in anom_cols:
+            conn.execute(text("ALTER TABLE anomalies ADD COLUMN marked_for_investigation INTEGER DEFAULT 0"))
 
 def get_db():
     db = SessionLocal()

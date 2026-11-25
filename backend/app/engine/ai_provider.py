@@ -15,6 +15,11 @@ class BaseAIProvider(ABC):
         """Translates computed statistical results into clear domain prose without inventing numbers."""
         pass
 
+    @abstractmethod
+    def interpret_discovery_findings(self, understanding: dict[str, Any], findings: list[dict[str, Any]]) -> dict[str, Any]:
+        """Generates grounded plain-language interpretations referencing finding IDs without raw dataset rows."""
+        pass
+
 class DeterministicStatisticalProvider(BaseAIProvider):
     """Zero-hallucination deterministic fallback when no external LLM API key is configured."""
     provider_name: str = "deterministic_statistical_engine"
@@ -44,6 +49,36 @@ class DeterministicStatisticalProvider(BaseAIProvider):
             )
         return " ".join(parts) if parts else "No statistical findings available to summarize."
 
+    def interpret_discovery_findings(self, understanding: dict[str, Any], findings: list[dict[str, Any]]) -> dict[str, Any]:
+        domain = understanding.get("inferred_domain", "general_tabular").replace("_", " ")
+        rows = understanding.get("row_count", 0)
+        cols = understanding.get("column_count", 0)
+        supported = [f for f in findings if f.get("evidence_strength") == "statistically_supported"]
+        exploratory = [f for f in findings if f.get("evidence_strength") != "statistically_supported"]
+
+        if not findings:
+            return {
+                "overview_interpretation": (
+                    f"Examined {rows} rows across {cols} columns ({domain} profile). "
+                    "No statistically unusual patterns exceeded the configured discovery thresholds."
+                ),
+                "referenced_finding_ids": [],
+                "grounded": True,
+            }
+
+        top_refs = [f"[{f['id']}] {f['title']}" for f in findings[:3]]
+        overview = (
+            f"Autonomous scan of {rows} rows and {cols} columns ({domain} profile) surfaced "
+            f"{len(findings)} pattern(s): {len(supported)} statistically supported and {len(exploratory)} exploratory observation(s). "
+            f"Top prioritized patterns: {'; '.join(top_refs)}. "
+            "All correlations and temporal shifts require further causal verification before action."
+        )
+        return {
+            "overview_interpretation": overview,
+            "referenced_finding_ids": [f["id"] for f in findings[:5]],
+            "grounded": True,
+        }
+
 class ConfiguredLLMProvider(BaseAIProvider):
     """Wrapper that detects server-side API keys (OpenAI / Gemini / Anthropic) without ever exposing them."""
     def __init__(self, provider_name: str, api_key: str):
@@ -54,6 +89,10 @@ class ConfiguredLLMProvider(BaseAIProvider):
         # Delegate to deterministic structured summary to guarantee zero invented statistics
         # while honoring configured provider selection.
         return DeterministicStatisticalProvider().explain_findings(context)
+
+    def interpret_discovery_findings(self, understanding: dict[str, Any], findings: list[dict[str, Any]]) -> dict[str, Any]:
+        # Pass only metadata + finding summaries; enforce grounded deterministic output so no numbers are invented
+        return DeterministicStatisticalProvider().interpret_discovery_findings(understanding, findings)
 
 def get_ai_provider() -> BaseAIProvider:
     """Factory returning the active AI provider based strictly on server-side environment variables."""

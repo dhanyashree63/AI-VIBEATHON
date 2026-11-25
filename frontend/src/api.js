@@ -115,14 +115,31 @@ export async function fuseDatasets(invId) {
   return res.json();
 }
 
-export async function triggerAnomalyDiscovery(invId, metricCol) {
+export async function triggerAnomalyDiscovery(invId, metricCol, background = false) {
   const form = new FormData();
   if (metricCol) form.append('metric_col', metricCol);
-  const res = await fetch(`${API_BASE}/investigations/${invId}/discover`, {
+  if (background) form.append('background', 'true');
+  const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(invId)}/discover`, {
     method: 'POST',
     body: form
   });
-  if (!res.ok) throw new Error('Anomaly discovery failed');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Pattern discovery failed' }));
+    throw new Error(err.detail || 'Pattern discovery failed');
+  }
+  return res.json();
+}
+
+export async function toggleFindingMark(invId, findingId, marked) {
+  const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(invId)}/findings/${encodeURIComponent(findingId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ marked_for_investigation: marked })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to update finding' }));
+    throw new Error(err.detail || 'Failed to update finding');
+  }
   return res.json();
 }
 
