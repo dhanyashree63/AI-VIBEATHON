@@ -56,10 +56,16 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [backendOffline, setBackendOffline] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
+    fetch('/api/health')
+      .then((res) => {
+        if (!res.ok) setBackendOffline(true);
+      })
+      .catch(() => setBackendOffline(true));
     fetchCurrentUser().then((u) => {
       if (u) setCurrentUser(u);
     });
@@ -298,6 +304,14 @@ export default function App() {
         />
 
         <main id="main-content" className="flex-1 px-4 sm:px-8 py-6 sm:py-8 overflow-x-hidden">
+          {backendOffline && (
+            <div className="max-w-6xl mx-auto mb-5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>
+                <strong>Static Preview Mode:</strong> No live Python/FastAPI backend is connected at <code>/api</code>. Run <code>python run.py</code> locally or deploy via Docker for dataset uploads and statistical analysis.
+              </span>
+            </div>
+          )}
           {activeTab === 'overview' && (
             <Overview
               investigations={investigations}
