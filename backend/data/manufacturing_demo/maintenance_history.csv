@@ -1,0 +1,5 @@
+machine_id,last_maintenance_date,days_since_service,maintenance_type,bearing_condition
+M-01,2026-02-15,24,PREVENTIVE,GOOD
+M-02,2025-11-10,120,OVERDUE,FAIR
+M-03,2026-02-28,12,RECENT,EXCELLENT
+M-04,2025-10-01,160,OVERDUE,POOR

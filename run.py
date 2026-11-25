@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""
+REVERSE AI 2.0 Launcher
+Tagline: Discover. Investigate. Prove.
+"""
+
+import sys
+import uvicorn
+from backend.app.core.config import settings
+
+def main():
+    print("=" * 70)
+    print("   REVERSE AI 2.0 — Autonomous Data Investigation Platform")
+    print("   Tagline: Discover. Investigate. Prove.")
+    print("=" * 70)
+    print("\n[+] Starting FastAPI Application Server...")
+    print("[+] API Documentation: http://localhost:8000/docs")
+    print("[+] Web Workspace UI:  http://localhost:8000\n")
+    
+    uvicorn.run("backend.app.main:app", host="127.0.0.1", port=8000, reload=False)
+
+if __name__ == "__main__":
+    main()

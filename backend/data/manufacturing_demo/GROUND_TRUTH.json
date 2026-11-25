@@ -1,0 +1,30 @@
+{
+  "scenario": "Manufacturing Facility Production Output Degradation",
+  "problem_statement": "Facility output experienced an unexplained ~18.5% decline starting around Day 7.",
+  "planted_root_cause": {
+    "entity": "Machine M-03",
+    "physical_mechanism": "Proportional coolant bypass valve stickiness resulting in coolant starvation (< 12 L/min vs 32 L/min nominal), leading to thermal throttling.",
+    "onset_day": 7,
+    "actual_impact": "Machine M-03 output drops from ~95 units/hr to ~58 units/hr, dragging facility overall output down by ~18.5%."
+  },
+  "planted_misleading_correlation": {
+    "variable": "power_kw (energy consumption)",
+    "observation": "Strong positive correlation between power draw and output (r = 0.72).",
+    "trap": "Interpreting power drop as the root cause (e.g. grid instability), when in fact power drops because the machine's safety governor throttles speed."
+  },
+  "planted_confounder": {
+    "variable": "workload_rpm",
+    "observation": "Higher RPM elevates spindle temperature across all machines, creating the false impression that high workload is the primary issue."
+  },
+  "planted_data_quality_issues": [
+    "Machine logs contain 8 duplicated telemetry rows.",
+    "Temperature sensor on M-03 suffered packet loss/downtime between Day 8 and Day 9 (null values).",
+    "Temperature records contain occasional raw text unit strings ('84.2 C' and one rogue '183 F')."
+  ],
+  "planted_alternative_hypotheses": [
+    "HYP_WORKLOAD_CONFOUNDING (High workload / RPM strain)",
+    "HYP_MAINTENANCE_DELAY (Delayed overhaul on M-02 & M-04)",
+    "HYP_POWER_VOLATILITY (Grid voltage drops)",
+    "HYP_MATERIAL_VARIATION (Raw material feedstock batch hardness)"
+  ]
+}
