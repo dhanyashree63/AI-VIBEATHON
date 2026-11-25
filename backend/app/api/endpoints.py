@@ -15,10 +15,14 @@ from sqlalchemy.orm import Session
 import pandas as pd
 
 from backend.app.core.config import settings
-from backend.app.core.security import validate_uploaded_file, validate_file_content, detect_pii, sanitize_filename
+from backend.app.core.security import validate_uploaded_file, validate_file_content, read_upload_streaming, detect_pii, sanitize_filename
+from backend.app.core.auth import get_optional_user, enforce_investigation_access
+from backend.app.api.routes_auth import router as auth_router
+from backend.app.api.routes_system import router as system_router, health_check, get_platform_settings_status
 from backend.app.engine.database import (
     SessionLocal,
     get_db,
+    User,
     Investigation,
     DatasetRecord,
     AnomalyRecord,
@@ -41,6 +45,11 @@ from backend.app.engine.ai_provider import get_ai_provider, get_ai_provider_stat
 from backend.app.demo.manufacturing import generate_manufacturing_demo_datasets, DEMO_DIR
 
 router = APIRouter()
+router.include_router(auth_router)
+router.include_router(system_router)
+
+def _user_or_none(current_user: Any) -> User | None:
+    return current_user if isinstance(current_user, User) else None
 
 INV_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{3,64}$")
 
@@ -104,8 +113,10 @@ def create_investigation(
     description: str = Form(None),
     budget_limit: float = Form(10000.0),
     time_limit_days: int = Form(14),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_optional_user)
 ):
+    user_obj = _user_or_none(current_user)
     clean_title = (title or "").strip()
     if len(clean_title) < 2:
         raise HTTPException(status_code=400, detail="Investigation name must be at least 2 characters.")
@@ -117,6 +128,7 @@ def create_investigation(
     inv_id = f"INV-{uuid.uuid4().hex[:8].upper()}"
     inv = Investigation(
         id=inv_id,
+        owner_id=user_obj.id if user_obj else None,
         title=clean_title,
         description=(description or "").strip() or None,
         status="draft",
@@ -144,9 +156,13 @@ def list_investigations(
     status: Optional[str] = Query(None),
     sort_by: str = Query("updated_at"),
     sort_order: str = Query("desc"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_optional_user)
 ):
+    user_obj = _user_or_none(current_user)
     query = db.query(Investigation)
+    if user_obj is not None:
+        query = query.filter((Investigation.owner_id == user_obj.id) | (Investigation.id == "INV-DEMO-MFG-01"))
     if status and status.lower() != "all":
         query = query.filter(Investigation.status == status.lower())
 
@@ -181,11 +197,12 @@ def list_investigations(
     return {"investigations": results}
 
 @router.get("/investigations/{inv_id}")
-def get_investigation(inv_id: str, db: Session = Depends(get_db)):
+def get_investigation(inv_id: str, db: Session = Depends(get_db), current_user: Any = Depends(get_optional_user)):
     _validate_inv_id(inv_id)
     inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
+    enforce_investigation_access(inv, _user_or_none(current_user))
         
     return {
         "investigation": _serialize_investigation(inv),
@@ -361,12 +378,13 @@ def update_investigation(
     return {"status": "success", "investigation": _serialize_investigation(inv)}
 
 @router.delete("/investigations/{inv_id}")
-def delete_investigation(inv_id: str, db: Session = Depends(get_db)):
+def delete_investigation(inv_id: str, db: Session = Depends(get_db), current_user: Any = Depends(get_optional_user)):
     """Permanently deletes an investigation, its child DB records, and its uploaded dataset directory."""
     _validate_inv_id(inv_id)
     inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
+    enforce_investigation_access(inv, _user_or_none(current_user))
     if inv.status == "processing":
         raise HTTPException(status_code=409, detail="Cannot delete an investigation while analysis is running.")
 
@@ -463,15 +481,17 @@ def upload_dataset(
     file: UploadFile = File(...),
     dataset_name: str = Form(None),
     is_supplemental: bool = Form(False),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_optional_user)
 ):
     _validate_inv_id(inv_id)
     inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
+    enforce_investigation_access(inv, _user_or_none(current_user))
 
     clean_filename = validate_uploaded_file(file)
-    content = file.file.read()
+    content = read_upload_streaming(file)
     detected_format = validate_file_content(content, clean_filename, getattr(file, "content_type", None))
     name = dataset_name or Path(clean_filename).stem.replace("_", " ").title()
 
@@ -1071,39 +1091,6 @@ def get_investigation_charts(inv_id: str, db: Session = Depends(get_db)):
         "is_simulated": inv_id == "INV-DEMO-MFG-01"
     }
 
-
-@router.get("/health")
-def health_check(db: Session = Depends(get_db)):
-    """Reports database connectivity, storage writability, and platform status."""
-    db_ok = False
-    try:
-        db.execute(text("SELECT 1"))
-        db_ok = True
-    except Exception:
-        db_ok = False
-    storage_ok = settings.STORAGE_DIR.exists() and os.access(settings.STORAGE_DIR, os.W_OK)
-    return {
-        "status": "healthy" if (db_ok and storage_ok) else "degraded",
-        "version": settings.VERSION,
-        "database": "connected" if db_ok else "error",
-        "storage": "writable" if storage_ok else "error",
-    }
-
-
-@router.get("/settings/status")
-def get_platform_settings_status():
-    return {
-        "ai_provider": get_ai_provider_status(),
-        "security": {
-            "max_upload_mb": settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024),
-            "allowed_extensions": sorted(list(settings.ALLOWED_EXTENSIONS)),
-            "pii_detection_and_masking": True,
-            "path_traversal_protection": True,
-            "parameterized_queries": True,
-            "cors_explicit_origins": settings.CORS_ORIGINS
-        }
-    }
-
 # -------------------------------------------------------------
 # Closed-Loop Supplemental Evidence & Memory
 # -------------------------------------------------------------
@@ -1112,15 +1099,17 @@ def ingest_supplemental_evidence(
     inv_id: str,
     file: UploadFile = File(...),
     dataset_name: str = Form("Targeted Coolant Flow & Valve Pressure Evidence"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_optional_user)
 ):
     _validate_inv_id(inv_id)
     inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
+    enforce_investigation_access(inv, _user_or_none(current_user))
 
     clean_filename = validate_uploaded_file(file)
-    content = file.file.read()
+    content = read_upload_streaming(file)
     validate_file_content(content, clean_filename, getattr(file, "content_type", None))
 
     inv_storage = settings.STORAGE_DIR / inv_id
@@ -1167,8 +1156,12 @@ def ingest_supplemental_evidence(
 # Reports & Audit History
 # -------------------------------------------------------------
 @router.get("/investigations/{inv_id}/report")
-def get_report(inv_id: str, format: str = "json", db: Session = Depends(get_db)):
+def get_report(inv_id: str, format: str = "json", db: Session = Depends(get_db), current_user: Any = Depends(get_optional_user)):
     _validate_inv_id(inv_id)
+    inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    enforce_investigation_access(inv, _user_or_none(current_user))
     report = generate_investigation_report(db, inv_id)
     if "error" in report:
         raise HTTPException(status_code=404, detail=report["error"])

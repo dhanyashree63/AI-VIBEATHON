@@ -1,19 +1,39 @@
 import json
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Text, Float, DateTime, ForeignKey, text
+from sqlalchemy import create_engine, Column, Integer, String, Text, Float, DateTime, ForeignKey, text, event
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from backend.app.core.config import settings
 
-engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 30})
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragmas(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA busy_timeout=30000")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 VALID_INVESTIGATION_STATUSES = {"draft", "ready", "processing", "completed", "failed", "archived"}
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class Investigation(Base):
     __tablename__ = "investigations"
     
     id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String, default="draft")  # draft, ready, processing, completed, failed, archived
@@ -141,6 +161,8 @@ def init_db():
     # Safe additive migration for existing SQLite databases
     with engine.begin() as conn:
         cols = [row[1] for row in conn.execute(text("PRAGMA table_info(investigations)")).fetchall()]
+        if "owner_id" not in cols:
+            conn.execute(text("ALTER TABLE investigations ADD COLUMN owner_id VARCHAR"))
         if "analysis_stage" not in cols:
             conn.execute(text("ALTER TABLE investigations ADD COLUMN analysis_stage VARCHAR DEFAULT 'idle'"))
         if "analysis_error" not in cols:

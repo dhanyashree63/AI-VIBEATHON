@@ -1,4 +1,5 @@
 import os
+import secrets
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
@@ -17,6 +18,9 @@ class Settings(BaseSettings):
     ENV: str = os.getenv("REVERSE_AI_ENV", "development")
     DEBUG: bool = os.getenv("REVERSE_AI_DEBUG", "false").lower() == "true"
     RATE_LIMIT_PER_MIN: int = int(os.getenv("REVERSE_AI_RATE_LIMIT", "120"))
+    REQUIRE_AUTH: bool = os.getenv("REVERSE_AI_REQUIRE_AUTH", "false").lower() == "true"
+    SECRET_KEY: str = os.getenv("REVERSE_AI_SECRET_KEY") or secrets.token_urlsafe(32)
+    TOKEN_EXPIRE_MINUTES: int = int(os.getenv("REVERSE_AI_TOKEN_EXPIRE_MINUTES", "1440"))
     
     # Storage
     STORAGE_DIR: Path = STORAGE_DIR

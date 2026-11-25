@@ -9,7 +9,9 @@ import {
   Moon,
   Monitor,
   Globe,
-  Play
+  Play,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useI18n, LANGUAGES } from '../context/I18nContext';
@@ -19,7 +21,10 @@ export default function Navbar({
   onNavigate,
   onLoadDemo,
   recentEvents = [],
-  isLoading
+  isLoading,
+  user = null,
+  onOpenAuth,
+  onLogout
 }) {
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
@@ -77,7 +82,9 @@ export default function Navbar({
                 key={opt.id}
                 onClick={() => setTheme(opt.id)}
                 title={opt.label}
-                className={`p-1.5 rounded-md transition-colors ${
+                aria-label={opt.label}
+                aria-pressed={active}
+                className={`p-1.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                   active
                     ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -188,10 +195,37 @@ export default function Navbar({
           {profileOpen && (
             <div className="absolute right-0 mt-1.5 w-52 rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 shadow-lg py-1.5 z-50">
               <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
-                <div className="text-xs font-semibold text-slate-900 dark:text-white">{t('investigator_role')}</div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">Local Workspace</div>
+                <div className="text-xs font-semibold text-slate-900 dark:text-white">
+                  {user ? user.name : t('investigator_role')}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                  {user ? user.email : 'Local Workspace'}
+                </div>
               </div>
               <div className="p-1 space-y-0.5">
+                {user ? (
+                  <button
+                    onClick={() => {
+                      setProfileOpen(false);
+                      if (onLogout) onLogout();
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setProfileOpen(false);
+                      if (onOpenAuth) onOpenAuth();
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>Sign In / Register</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setProfileOpen(false);

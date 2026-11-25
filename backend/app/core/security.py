@@ -1,6 +1,8 @@
+import io
 import os
 import re
 import json
+import zipfile
 from pathlib import Path
 from fastapi import HTTPException, UploadFile
 from backend.app.core.config import settings
@@ -67,6 +69,23 @@ def validate_uploaded_file(file: UploadFile) -> str:
 
     return clean_name
 
+def read_upload_streaming(file: UploadFile, max_bytes: int | None = None, chunk_size: int = 65536) -> bytes:
+    """Reads an uploaded file in chunks while enforcing size limits before full allocation."""
+    limit = max_bytes if max_bytes is not None else settings.MAX_UPLOAD_SIZE_BYTES
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = file.file.read(chunk_size)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            max_mb = max(1, limit // (1024 * 1024))
+            raise HTTPException(status_code=413, detail=f"File exceeds the maximum upload limit of {max_mb} MB.")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def validate_file_content(content: bytes, clean_filename: str, content_type: str | None = None) -> str:
     """
     Inspects actual file bytes (magic signatures, encoding, structure, size) to verify
@@ -101,6 +120,16 @@ def validate_file_content(content: bytes, clean_filename: str, content_type: str
                 status_code=400,
                 detail="Invalid or corrupted Excel (.xlsx) file: file signature does not match OOXML format."
             )
+        # Archive / decompression bomb protection
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                total_uncompressed = sum(info.file_size for info in zf.infolist())
+                if total_uncompressed > 150 * 1024 * 1024:
+                    raise HTTPException(status_code=400, detail="Excel archive uncompressed size exceeds 150 MB safety limit.")
+                if len(content) > 0 and (total_uncompressed / len(content)) > 100:
+                    raise HTTPException(status_code=400, detail="Suspicious Excel archive compression ratio rejected for security.")
+        except zipfile.BadZipFile:
+            raise HTTPException(status_code=400, detail="Corrupted Excel (.xlsx) archive.")
         return "xlsx"
 
     # Text-based formats (.csv, .json, .txt) must not contain raw null bytes

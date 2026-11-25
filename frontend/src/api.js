@@ -1,4 +1,65 @@
 const API_BASE = '/api';
+const TOKEN_KEY = 'reverse_ai_token';
+
+export function getAuthToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setAuthToken(token) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+  } catch {}
+}
+
+export function clearAuthToken() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {}
+}
+
+function authHeaders(extra = {}) {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}`, ...extra } : { ...extra };
+}
+
+export async function registerAccount(name, email, password) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Registration failed');
+  if (data.access_token) setAuthToken(data.access_token);
+  return data;
+}
+
+export async function loginAccount(email, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Sign in failed');
+  if (data.access_token) setAuthToken(data.access_token);
+  return data;
+}
+
+export async function fetchCurrentUser() {
+  const token = getAuthToken();
+  if (!token) return null;
+  const res = await fetch(`${API_BASE}/auth/me`, { headers: authHeaders() });
+  if (!res.ok) {
+    clearAuthToken();
+    return null;
+  }
+  return res.json();
+}
 
 export async function fetchInvestigations({ search = '', status = '', sortBy = 'updated_at', sortOrder = 'desc' } = {}) {
   const params = new URLSearchParams();
@@ -7,7 +68,7 @@ export async function fetchInvestigations({ search = '', status = '', sortBy = '
   if (sortBy) params.set('sort_by', sortBy);
   if (sortOrder) params.set('sort_order', sortOrder);
   const qs = params.toString() ? `?${params.toString()}` : '';
-  const res = await fetch(`${API_BASE}/investigations${qs}`);
+  const res = await fetch(`${API_BASE}/investigations${qs}`, { headers: authHeaders() });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Failed to fetch investigations' }));
     throw new Error(err.detail || 'Failed to fetch investigations');
@@ -16,7 +77,7 @@ export async function fetchInvestigations({ search = '', status = '', sortBy = '
 }
 
 export async function fetchInvestigation(id) {
-  const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(id)}`);
+  const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(id)}`, { headers: authHeaders() });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Failed to fetch investigation' }));
     const error = new Error(err.detail || 'Failed to fetch investigation');
@@ -29,6 +90,7 @@ export async function fetchInvestigation(id) {
 export async function createInvestigation(formData) {
   const res = await fetch(`${API_BASE}/investigations`, {
     method: 'POST',
+    headers: authHeaders(),
     body: formData
   });
   if (!res.ok) {

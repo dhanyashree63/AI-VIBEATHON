@@ -9,11 +9,14 @@ import Settings from './components/Settings';
 import Help from './components/Help';
 import NewInvestigationModal from './components/NewInvestigationModal';
 import OnboardingWizard from './components/OnboardingWizard';
+import AuthModal from './components/AuthModal';
 import {
   fetchInvestigations,
   fetchInvestigation,
   loadDemoScenario,
-  executeDemoNextStep
+  executeDemoNextStep,
+  fetchCurrentUser,
+  clearAuthToken
 } from './api';
 import { CheckCircle2, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 
@@ -51,8 +54,16 @@ export default function App() {
   const [detailSubTab, setDetailSubTab] = useState('summary');
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+
+  useEffect(() => {
+    fetchCurrentUser().then((u) => {
+      if (u) setCurrentUser(u);
+    });
+  }, []);
 
   const showToast = (msg, type = 'success') => {
     setToastMessage({ msg, type });
@@ -255,6 +266,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FC] dark:bg-[#0B0F1A] text-[#111827] dark:text-[#E5E7EB] flex transition-colors duration-150">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-indigo-600 focus:text-white focus:text-xs focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       <Sidebar
         activeTab={activeTab}
         setActiveTab={handleNavChange}
@@ -270,9 +287,17 @@ export default function App() {
           onLoadDemo={handleLoadDemo}
           recentEvents={currentInvestigation?.history || []}
           isLoading={isLoading}
+          user={currentUser}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onLogout={() => {
+            clearAuthToken();
+            setCurrentUser(null);
+            loadInvestigationsList();
+            showToast('Signed out.');
+          }}
         />
 
-        <main className="flex-1 px-4 sm:px-8 py-6 sm:py-8 overflow-x-hidden">
+        <main id="main-content" className="flex-1 px-4 sm:px-8 py-6 sm:py-8 overflow-x-hidden">
           {activeTab === 'overview' && (
             <Overview
               investigations={investigations}
@@ -383,16 +408,29 @@ export default function App() {
       </div>
 
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 shadow-lg text-xs font-medium text-slate-900 dark:text-white">
-          {toastMessage.type === 'error' ? (
-            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-          ) : (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          )}
-          <span>{toastMessage.msg}</span>
-        </div>
-      )}
+      <div aria-live="polite" aria-atomic="true">
+        {toastMessage && (
+          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 shadow-lg text-xs font-medium text-slate-900 dark:text-white">
+            {toastMessage.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            )}
+            <span>{toastMessage.msg}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthenticated={async (user) => {
+          setCurrentUser(user);
+          await loadInvestigationsList();
+          showToast(`Signed in as ${user.name}.`);
+        }}
+      />
 
       {/* New Investigation Modal */}
       <NewInvestigationModal
