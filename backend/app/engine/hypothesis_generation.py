@@ -417,4 +417,105 @@ def generate_competing_explanations(fused_df: pd.DataFrame, anomaly_info: dict[s
     })
 
     hypotheses.sort(key=lambda x: x["strength_score"], reverse=True)
+    return _enrich_explanations_metadata(hypotheses, fused_df, metric_col)
+
+
+def _map_support_level(score: float, supporting_count: int, contradicting_count: int, status: str) -> str:
+    if supporting_count == 0 and contradicting_count == 0:
+        return "Insufficient evidence"
+    if status == "refuted" or score < 0.35:
+        return "Weakly supported"
+    if score >= 0.72 and supporting_count >= 1:
+        return "Strongly supported"
+    if score >= 0.45:
+        return "Moderately supported"
+    return "Weakly supported"
+
+
+def _categorize_missing_evidence(missing_items: list[str], unused_numeric_cols: list[str]) -> list[dict[str, str]]:
+    gaps: list[dict[str, str]] = []
+    for item in missing_items:
+        lower = item.lower()
+        if any(k in lower for k in ("missing from", "unmeasured", "not present", "unavailable", "lack")):
+            cat = "completely_unavailable"
+        else:
+            cat = "requires_additional_collection"
+        gaps.append({"category": cat, "detail": item})
+    if unused_numeric_cols:
+        gaps.append({
+            "category": "exists_not_analysed",
+            "detail": f"Additional uploaded column(s) available for analysis: {', '.join(unused_numeric_cols[:4])}."
+        })
+    return gaps
+
+
+def _enrich_explanations_metadata(hypotheses: list[dict[str, Any]], df: pd.DataFrame, metric_col: str) -> list[dict[str, Any]]:
+    num_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != metric_col]
+    for h in hypotheses:
+        score = float(h.get("strength_score", 0.0))
+        supp = h.get("supporting_evidence", [])
+        contra = h.get("contradicting_evidence", [])
+        miss = h.get("missing_evidence", [])
+        h["support_level"] = _map_support_level(score, len(supp), len(contra), h.get("status", "active"))
+        h["is_causal_proven"] = h.get("status") == "proven_root_cause"
+        h["verification_note"] = (
+            "Verified with targeted supplemental evidence."
+            if h["is_causal_proven"]
+            else "Unverified: observational associations do not establish causation without intervention."
+        )
+        h["evidence_gaps"] = _categorize_missing_evidence(miss, num_cols[5:])
     return hypotheses
+
+
+def simulate_what_if_scenario(
+    df: pd.DataFrame,
+    target_col: str,
+    predictor_col: str,
+    delta_pct: float
+) -> dict[str, Any]:
+    """
+    Explores a hypothetical scenario using OLS linear regression fitted on actual data.
+    Never modifies the source DataFrame and explicitly marks outputs as simulated projections.
+    """
+    if target_col not in df.columns or predictor_col not in df.columns:
+        raise ValueError(f"Columns '{predictor_col}' and '{target_col}' must exist in the dataset.")
+    if target_col == predictor_col:
+        raise ValueError("Predictor and target columns must be different.")
+
+    valid = df[[predictor_col, target_col]].dropna()
+    if len(valid) < 10:
+        raise ValueError(f"Insufficient complete observations (n={len(valid)}; minimum 10 required) for What-If simulation.")
+    if valid[predictor_col].std() == 0 or valid[target_col].std() == 0:
+        raise ValueError("Constant column cannot be used in What-If linear projection.")
+
+    x = valid[predictor_col].to_numpy(dtype=float)
+    y = valid[target_col].to_numpy(dtype=float)
+    res = stats.linregress(x, y)
+
+    base_x = float(np.mean(x))
+    base_y = float(np.mean(y))
+    sim_x = base_x * (1.0 + (delta_pct / 100.0))
+    projected_y = float(res.intercept + res.slope * sim_x)
+    projected_delta_pct = ((projected_y - base_y) / max(abs(base_y), 1e-6)) * 100.0
+
+    return {
+        "is_simulation": True,
+        "target_variable": target_col,
+        "predictor_variable": predictor_col,
+        "predictor_delta_pct": round(float(delta_pct), 2),
+        "baseline_predictor_mean": round(base_x, 4),
+        "simulated_predictor_value": round(sim_x, 4),
+        "baseline_target_mean": round(base_y, 4),
+        "projected_target_mean": round(projected_y, 4),
+        "projected_target_delta_pct": round(float(projected_delta_pct), 2),
+        "model_metrics": {
+            "slope": round(float(res.slope), 5),
+            "r_squared": round(float(res.rvalue ** 2), 4),
+            "p_value": round(float(res.pvalue), 6),
+            "sample_size": len(valid),
+        },
+        "disclaimer": (
+            "Simulated linear projection based on historical observational data. "
+            "Does not modify uploaded datasets and does not prove causal intervention outcomes."
+        ),
+    }

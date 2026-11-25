@@ -49,11 +49,13 @@ def optimize_investigation_budget(
 
     scored_candidates = []
     for rec in recommendations:
-        cost = max(1.0, float(rec.get("estimated_cost_usd", 1000.0)))
-        duration = max(1, int(rec.get("estimated_duration_days", 3)))
-        feasibility = float(rec.get("feasibility_score", 0.8))
-        info_gain = float(rec.get("expected_information_gain_bits", 0.5))
-        sample_size = int(rec.get("required_sample_size", 50))
+        raw_cost = rec.get("estimated_cost_usd")
+        raw_dur = rec.get("estimated_duration_days")
+        cost = max(1.0, float(raw_cost)) if raw_cost is not None else 1.0
+        duration = max(1, int(raw_dur)) if raw_dur is not None else 1
+        feasibility = float(rec.get("feasibility_score") if rec.get("feasibility_score") is not None else 0.8)
+        info_gain = float(rec.get("expected_information_gain_bits") if rec.get("expected_information_gain_bits") is not None else 0.5)
+        sample_size = int(rec.get("required_sample_size") if rec.get("required_sample_size") is not None else 50)
 
         info_per_dollar = round((info_gain / cost) * 1000.0, 4)  # bits per $1,000
         info_per_day = round(info_gain / duration, 4)           # bits per day

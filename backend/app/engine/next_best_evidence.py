@@ -156,29 +156,43 @@ def generate_evidence_recommendations(hypotheses: list[dict[str, Any]]) -> list[
         })
 
     # Generic fallback for non-manufacturing user-uploaded datasets
-    if not recommendations and len(hypotheses) >= 2:
+    if not recommendations and len(hypotheses) >= 1:
         for i, h in enumerate(hypotheses[:3]):
             ig, ur = _compute_bayesian_info_gain(priors, [i], diagnostic_sensitivity=0.85)
             n_obs = estimate_required_sample_size(expected_effect_size=0.5) * 2
+            missing_list = h.get("missing_evidence", [])
+            missing_hint = missing_list[0] if missing_list else f"Controlled measurements for '{h['title']}'."
             recommendations.append({
                 "id": f"REC_TARGETED_{i + 1}",
-                "title": f"Controlled Measurement Study for {h['title']}",
+                "title": f"Targeted Evidence Collection: {h['title']}",
                 "target_hypotheses": [h["id"]],
-                "what_to_collect": f"Targeted controlled measurements isolating variables linked to '{h['title']}' while holding confounders constant.",
-                "why_needed": "Separates true causal effect from observational correlation in current datasets.",
+                "what_to_collect": missing_hint,
+                "why_needed": "Evaluates missing evidence and separates true signal from observational confounding.",
                 "distinguishing_logic": {
-                    "outcome_if_supported": f"Target metric shifts consistently (p < 0.05, N >= {n_obs}) when variable is varied under controlled conditions.",
-                    "outcome_if_refuted": "Target metric shows no statistically significant response, eliminating this explanation."
+                    "outcome_if_supported": f"Target metric shifts consistently (p < 0.05, N >= {n_obs}) when new observations are added.",
+                    "outcome_if_refuted": "Target metric shows no statistically significant response, reducing support for this explanation."
                 },
                 "expected_information_gain_bits": ig,
                 "expected_uncertainty_reduction_pct": ur,
                 "required_sample_size": n_obs,
-                "estimated_cost_usd": round(1000.0 + i * 750.0, 2),
-                "estimated_duration_days": 2 + i,
+                "estimated_cost_usd": None,
+                "estimated_duration_days": None,
                 "feasibility_score": round(0.90 - i * 0.08, 2),
-                "limitations": ["Cost and duration are baseline estimates subject to operational constraints."],
+                "priority": "high" if i == 0 else "medium",
+                "expected_outcome": f"Resolves {ur}% of hypothesis entropy (target N >= {n_obs}).",
+                "limitations": [
+                    "Collection cost and duration are not provided for custom datasets.",
+                    "Observational follow-up reduces uncertainty but only controlled design establishes causation."
+                ],
                 "status": "top_recommendation" if i == 0 else "alternative_recommendation"
             })
 
     recommendations.sort(key=lambda x: x["expected_information_gain_bits"], reverse=True)
+    for idx, rec in enumerate(recommendations):
+        rec.setdefault("priority", "high" if idx == 0 else "medium")
+        rec.setdefault(
+            "expected_outcome",
+            f"Expected uncertainty reduction: {rec.get('expected_uncertainty_reduction_pct', 0)}% "
+            f"(+{rec.get('expected_information_gain_bits', 0)} bits)."
+        )
     return recommendations

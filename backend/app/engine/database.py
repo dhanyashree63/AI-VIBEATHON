@@ -113,8 +113,8 @@ class RecommendationRecord(Base):
     expected_information_gain = Column(Float, default=0.0)
     expected_uncertainty_reduction = Column(Float, default=0.0)
     required_sample_size = Column(Integer, default=50)
-    estimated_cost = Column(Float, default=500.0)
-    estimated_duration_days = Column(Integer, default=3)
+    estimated_cost = Column(Float, nullable=True, default=None)
+    estimated_duration_days = Column(Integer, nullable=True, default=None)
     feasibility_score = Column(Float, default=0.85)  # 0.0 to 1.0
     limitations = Column(Text, default="[]")  # JSON
     status = Column(String, default="recommended")  # recommended, executed, skipped
@@ -159,6 +159,10 @@ def init_db():
             conn.execute(text("ALTER TABLE anomalies ADD COLUMN analysis_version INTEGER DEFAULT 1"))
         if "marked_for_investigation" not in anom_cols:
             conn.execute(text("ALTER TABLE anomalies ADD COLUMN marked_for_investigation INTEGER DEFAULT 0"))
+
+        # Performance indexes on foreign keys
+        for tbl in ("datasets", "anomalies", "hypotheses", "recommendations", "investigation_history"):
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{tbl}_inv_id ON {tbl}(investigation_id)"))
 
 def get_db():
     db = SessionLocal()

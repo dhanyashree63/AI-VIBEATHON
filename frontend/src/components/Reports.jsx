@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Compass,
-  FileText
+  FileText,
+  Printer,
+  FileSpreadsheet
 } from 'lucide-react';
 import { getReport } from '../api';
 import StatusBadge from './StatusBadge';
@@ -17,7 +19,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
   const { t } = useI18n();
   const [report, setReport] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [activeView, setActiveView] = useState('summary');
+  const [activeView, setActiveView] = useState('simple'); // simple | technical | markdown | json
   const inv = investigation?.investigation;
 
   useEffect(() => {
@@ -52,6 +54,15 @@ export default function Reports({ investigation, investigations = [], onSelectIn
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadCsv = () => {
+    if (!inv?.id) return;
+    window.open(`/api/investigations/${encodeURIComponent(inv.id)}/report?format=csv`, '_blank');
+  };
+
+  const handlePrintPdf = () => {
+    window.print();
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -78,7 +89,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
           )}
 
           <div className="inline-flex rounded-lg bg-slate-100 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 p-0.5">
-            {['summary', 'markdown', 'json'].map((v) => (
+            {['simple', 'technical', 'markdown', 'json'].map((v) => (
               <button
                 key={v}
                 onClick={() => setActiveView(v)}
@@ -103,12 +114,30 @@ export default function Reports({ investigation, investigations = [], onSelectIn
           </button>
 
           <button
+            onClick={handleDownloadCsv}
+            disabled={!report}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-white dark:bg-[#161C2E] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition disabled:opacity-50"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>CSV</span>
+          </button>
+
+          <button
+            onClick={handlePrintPdf}
+            disabled={!report}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-white dark:bg-[#161C2E] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition disabled:opacity-50"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>PDF</span>
+          </button>
+
+          <button
             onClick={handleDownload}
             disabled={!report}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white transition disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{t('export_btn')}</span>
+            <span>{activeView === 'json' ? 'JSON' : 'MD'}</span>
           </button>
         </div>
       </div>
@@ -124,21 +153,34 @@ export default function Reports({ investigation, investigations = [], onSelectIn
               : undefined
           }
         />
-      ) : activeView === 'summary' ? (
+      ) : (activeView === 'simple' || activeView === 'technical') ? (
         <div className="space-y-5">
           <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Executive Summary</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                {activeView === 'simple' ? 'Executive Summary (Simple View)' : 'Technical Dossier'}
+              </span>
               <span className="font-mono text-xs text-slate-400">{report.investigation_id}</span>
             </div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">{report.title}</h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{report.description}</p>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              {report.executive_summary || report.description}
+            </p>
+            {report.data_quality_summary && (
+              <div className="pt-2 flex flex-wrap gap-3 text-[11px] font-mono text-slate-500">
+                <span>Datasets: {report.data_quality_summary.datasets_count}</span>
+                <span>&bull;</span>
+                <span>Total Rows: {report.data_quality_summary.total_rows?.toLocaleString()}</span>
+                <span>&bull;</span>
+                <span>Avg Quality Score: {report.data_quality_summary.average_quality_score}%</span>
+              </div>
+            )}
           </div>
 
           <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-3">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <span>Discovered Findings ({report.anomalies_discovered?.length || 0})</span>
+              <span>Unusual Patterns Discovered ({report.anomalies_discovered?.length || 0})</span>
             </h3>
             <div className="space-y-2.5">
               {(report.anomalies_discovered || []).map((a) => (
@@ -146,7 +188,8 @@ export default function Reports({ investigation, investigations = [], onSelectIn
                   <div>
                     <div className="font-semibold text-slate-900 dark:text-white">{a.title}</div>
                     <div className="text-slate-500 font-mono">
-                      {a.metric}: {a.baseline_value} &rarr; {a.anomaly_value} (p={a.p_value})
+                      {a.metric}: {a.baseline_value} &rarr; {a.anomaly_value}
+                      {activeView === 'technical' && ` (p=${a.p_value ?? 'exploratory'}, priority=${a.priority_score})`}
                     </div>
                   </div>
                   <StatusBadge status={a.severity} />
@@ -158,7 +201,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
           <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-3">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Competing Explanations &amp; Evidence ({report.competing_explanations?.length || 0})</span>
+              <span>Possible Explanations &amp; Evidence ({report.competing_explanations?.length || 0})</span>
             </h3>
             <div className="space-y-3">
               {(report.competing_explanations || []).map((h) => (
@@ -170,8 +213,16 @@ export default function Reports({ investigation, investigations = [], onSelectIn
                       <StatusBadge status={h.status} />
                     </div>
                   </div>
+                  {activeView === 'technical' && (
+                    <div className="font-mono text-[11px] text-slate-500">
+                      Effect size d={h.effect_size ?? 'N/A'} | p={h.p_value ?? 'N/A'} | 95% CI: {h.confidence_interval?.length === 2 ? `[${h.confidence_interval[0]}, ${h.confidence_interval[1]}]` : 'N/A'}
+                    </div>
+                  )}
                   {h.supporting_evidence?.[0] && (
                     <div className="text-emerald-700 dark:text-emerald-400"><strong>Supporting:</strong> {h.supporting_evidence[0]}</div>
+                  )}
+                  {h.contradicting_evidence?.[0] && (
+                    <div className="text-rose-700 dark:text-rose-400"><strong>Contradicting:</strong> {h.contradicting_evidence[0]}</div>
                   )}
                   {h.missing_evidence?.[0] && (
                     <div className="text-amber-700 dark:text-amber-400"><strong>Missing:</strong> {h.missing_evidence[0]}</div>
@@ -198,6 +249,25 @@ export default function Reports({ investigation, investigations = [], onSelectIn
               ))}
             </div>
           </div>
+
+          {/* Limitations & Uncertainty (Preserved in BOTH Simple and Technical Views) */}
+          {report.limitations?.length > 0 && (
+            <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-xs space-y-1.5">
+              <div className="font-semibold text-amber-800 dark:text-amber-300">Uncertainty &amp; Limitations</div>
+              <ul className="list-disc pl-4 space-y-1 text-amber-800/90 dark:text-amber-200/90">
+                {report.limitations.map((lim, i) => <li key={i}>{lim}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {activeView === 'technical' && report.statistical_methods?.length > 0 && (
+            <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+              <div className="font-semibold text-slate-900 dark:text-white">Statistical Methods &amp; Sources</div>
+              <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                {report.statistical_methods.map((m, i) => <li key={i}>{m}</li>)}
+              </ul>
+            </div>
+          )}
         </div>
       ) : (
         <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625]">

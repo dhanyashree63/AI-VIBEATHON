@@ -1,4 +1,6 @@
 import logging
+import time
+from collections import defaultdict, deque
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -18,7 +20,9 @@ init_db()
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Autonomous Data Investigation Platform: Discover. Investigate. Prove.",
-    version=settings.VERSION
+    version=settings.VERSION,
+    docs_url="/docs" if settings.DEBUG or settings.ENV != "production" else None,
+    redoc_url=None
 )
 
 # Cross-Origin Resource Sharing (CORS)
@@ -30,6 +34,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Lightweight in-memory rate limiter for write/compute API endpoints
+_RATE_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
+
+@app.middleware("http")
+async def security_and_rate_limit_middleware(request: Request, call_next):
+    if request.url.path.startswith(settings.API_PREFIX) and request.method in ("POST", "PATCH", "DELETE"):
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        bucket = _RATE_BUCKETS[client_ip]
+        while bucket and (now - bucket[0]) > 60.0:
+            bucket.popleft()
+        if len(bucket) >= settings.RATE_LIMIT_PER_MIN:
+            return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Please retry shortly."})
+        bucket.append(now)
+
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 # Global safe exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -39,7 +64,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={
             "error": "InternalServerError",
             "message": "An unexpected error occurred during investigation execution.",
-            "detail": str(exc) if not isinstance(exc, SystemError) else "Critical error."
+            "detail": str(exc) if settings.DEBUG else "Internal server error. Check server logs for details."
         }
     )
 

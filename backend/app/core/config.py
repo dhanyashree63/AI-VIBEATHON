@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     TAGLINE: str = "Discover. Investigate. Prove."
     VERSION: str = "2.0.0"
     API_PREFIX: str = "/api"
+    ENV: str = os.getenv("REVERSE_AI_ENV", "development")
+    DEBUG: bool = os.getenv("REVERSE_AI_DEBUG", "false").lower() == "true"
+    RATE_LIMIT_PER_MIN: int = int(os.getenv("REVERSE_AI_RATE_LIMIT", "120"))
     
     # Storage
     STORAGE_DIR: Path = STORAGE_DIR

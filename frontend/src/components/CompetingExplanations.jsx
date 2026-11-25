@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Scale,
   CheckCircle2,
@@ -6,7 +6,8 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  FileQuestion
+  FileQuestion,
+  Sliders
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -18,9 +19,21 @@ import {
   Tooltip,
   Cell
 } from 'recharts';
-import { evaluateHypotheses } from '../api';
+import { evaluateHypotheses, runWhatIfSimulation } from '../api';
 import StatusBadge from './StatusBadge';
 import { useTheme } from '../context/ThemeContext';
+
+function getSupportLevelLabel(h) {
+  if (h.status === 'proven_root_cause') return 'Strongly supported';
+  const s = h.strength_score || 0;
+  if ((h.supporting_evidence?.length || 0) === 0 && (h.contradicting_evidence?.length || 0) === 0) {
+    return 'Insufficient evidence';
+  }
+  if (h.status === 'refuted' || s < 0.35) return 'Weakly supported';
+  if (s >= 0.72) return 'Strongly supported';
+  if (s >= 0.45) return 'Moderately supported';
+  return 'Weakly supported';
+}
 
 export default function CompetingExplanations({ investigation, onRefresh, isLoading }) {
   const { resolvedTheme } = useTheme();
@@ -29,6 +42,41 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
   const [expandedId, setExpandedId] = useState(null);
   const inv = investigation?.investigation;
   const hypotheses = investigation?.hypotheses || [];
+  const datasets = investigation?.datasets || [];
+
+  // Extract numeric columns from first dataset for What-If simulation
+  const numericColumns = useMemo(() => {
+    const first = datasets[0];
+    const meta = first?.schema_info || {};
+    return Object.entries(meta)
+      .filter(([, info]) => info?.type === 'integer' || info?.type === 'float')
+      .map(([col]) => col);
+  }, [datasets]);
+
+  const [whatIfTarget, setWhatIfTarget] = useState('');
+  const [whatIfPred, setWhatIfPred] = useState('');
+  const [whatIfDelta, setWhatIfDelta] = useState(15);
+  const [whatIfResult, setWhatIfResult] = useState(null);
+  const [whatIfError, setWhatIfError] = useState('');
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  const effectiveTarget = whatIfTarget || numericColumns[0] || '';
+  const effectivePred = whatIfPred || numericColumns.find((c) => c !== effectiveTarget) || '';
+
+  const handleRunWhatIf = async (e) => {
+    e.preventDefault();
+    if (!inv?.id || !effectiveTarget || !effectivePred) return;
+    setWhatIfError('');
+    setIsSimulating(true);
+    try {
+      const res = await runWhatIfSimulation(inv.id, effectiveTarget, effectivePred, whatIfDelta);
+      setWhatIfResult(res.simulation);
+    } catch (err) {
+      setWhatIfError(err.message || 'What-If simulation failed');
+    } finally {
+      setIsSimulating(false);
+    }
+  };
 
   const handleEvaluate = async () => {
     if (!inv?.id) return;
@@ -138,6 +186,14 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
                   <div className="space-y-1.5 max-w-3xl">
                     <div className="flex flex-wrap items-center gap-2.5">
                       <StatusBadge status={h.status} />
+                      <span className="text-[10.5px] font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                        {getSupportLevelLabel(h)}
+                      </span>
+                      {!isRoot && (
+                        <span className="text-[10.5px] text-slate-400">
+                          Unverified (observational)
+                        </span>
+                      )}
                       <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase">Category: {h.category}</span>
                     </div>
                     <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">{h.title}</h3>
@@ -252,6 +308,86 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* What-If Scenario Explorer (Simulated Linear Projection) */}
+      {numericColumns.length >= 2 && (
+        <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625] space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">What-If Scenario Explorer</h3>
+            </div>
+            <span className="text-[10.5px] font-mono px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+              Simulated Projection (Does not modify data)
+            </span>
+          </div>
+
+          <form onSubmit={handleRunWhatIf} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">If variable changes</label>
+              <select
+                value={effectivePred}
+                onChange={(e) => setWhatIfPred(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-[#0B0F1A] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-800 dark:text-slate-200"
+              >
+                {numericColumns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Change (%): {whatIfDelta > 0 ? `+${whatIfDelta}%` : `${whatIfDelta}%`}</label>
+              <input
+                type="range"
+                min="-50"
+                max="50"
+                step="5"
+                value={whatIfDelta}
+                onChange={(e) => setWhatIfDelta(Number(e.target.value))}
+                className="w-full accent-indigo-600 cursor-pointer"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Projected impact on</label>
+              <select
+                value={effectiveTarget}
+                onChange={(e) => setWhatIfTarget(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-[#0B0F1A] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-800 dark:text-slate-200"
+              >
+                {numericColumns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={isSimulating || !effectivePred || !effectiveTarget || effectivePred === effectiveTarget}
+              className="px-4 py-2 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-medium transition disabled:opacity-50 cursor-pointer"
+            >
+              {isSimulating ? 'Simulating...' : 'Run Simulation'}
+            </button>
+          </form>
+
+          {whatIfError && (
+            <div className="text-xs text-rose-600 dark:text-rose-400">{whatIfError}</div>
+          )}
+
+          {whatIfResult && (
+            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center gap-4 font-mono">
+                <span>
+                  {whatIfResult.predictor_variable}: {whatIfResult.baseline_predictor_mean} &rarr; <strong>{whatIfResult.simulated_predictor_value}</strong> ({whatIfResult.predictor_delta_pct > 0 ? `+${whatIfResult.predictor_delta_pct}%` : `${whatIfResult.predictor_delta_pct}%`})
+                </span>
+                <span>
+                  Projected {whatIfResult.target_variable}: {whatIfResult.baseline_target_mean} &rarr; <strong className="text-indigo-600 dark:text-indigo-400">{whatIfResult.projected_target_mean}</strong> ({whatIfResult.projected_target_delta_pct > 0 ? `+${whatIfResult.projected_target_delta_pct}%` : `${whatIfResult.projected_target_delta_pct}%`})
+                </span>
+                <span className="text-slate-500">R²={whatIfResult.model_metrics.r_squared} (n={whatIfResult.model_metrics.sample_size})</span>
+              </div>
+              <p className="text-[11px] text-amber-700 dark:text-amber-300">{whatIfResult.disclaimer}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

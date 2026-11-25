@@ -5,8 +5,12 @@ import uuid
 import shutil
 from pathlib import Path
 from typing import Any, Optional
+import csv
+import io
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 import pandas as pd
 
@@ -27,7 +31,7 @@ from backend.app.engine.profiling import mask_dataframe_pii
 from backend.app.engine.data_fusion import identify_candidate_join_keys, fuse_datasets
 from backend.app.engine.anomaly_detection import detect_production_anomalies, extract_timeseries_chart_data
 from backend.app.engine.discovery_engine import run_autonomous_discovery
-from backend.app.engine.hypothesis_generation import generate_competing_explanations
+from backend.app.engine.hypothesis_generation import generate_competing_explanations, simulate_what_if_scenario
 from backend.app.engine.evidence_scoring import compute_uncertainty_metrics
 from backend.app.engine.next_best_evidence import generate_evidence_recommendations
 from backend.app.engine.budget_optimizer import optimize_investigation_budget
@@ -49,6 +53,11 @@ class InvestigationUpdatePayload(BaseModel):
 
 class FindingUpdatePayload(BaseModel):
     marked_for_investigation: bool
+
+class WhatIfPayload(BaseModel):
+    target_col: str
+    predictor_col: str
+    delta_pct: float
 
 def _validate_inv_id(inv_id: str) -> str:
     if not inv_id or not INV_ID_PATTERN.match(inv_id):
@@ -940,6 +949,8 @@ def generate_recommendations(inv_id: str, db: Session = Depends(get_db)):
 
     if recs:
         top = recs[0]
+        cost_str = f"${top['estimated_cost_usd']:,.2f}" if top.get("estimated_cost_usd") is not None else "Cost not provided"
+        dur_str = f"{top['estimated_duration_days']} days" if top.get("estimated_duration_days") is not None else "Duration not provided"
         record_history_event(
             db=db,
             investigation_id=inv_id,
@@ -948,12 +959,37 @@ def generate_recommendations(inv_id: str, db: Session = Depends(get_db)):
             description=(
                 f"Formulated optimal next investigation: '{top['title']}'. "
                 f"Expected Info Gain: {top['expected_information_gain_bits']} bits ({top['expected_uncertainty_reduction_pct']}% uncertainty reduction). "
-                f"Cost: ${top['estimated_cost_usd']:,.2f}, Time: {top['estimated_duration_days']} days."
+                f"{cost_str}, {dur_str}."
             ),
             state_snapshot={"recommendation_id": top["id"], "info_gain": top["expected_information_gain_bits"]}
         )
 
     return {"status": "success", "recommendations": recs}
+
+
+@router.post("/investigations/{inv_id}/what-if")
+def run_what_if_simulation(inv_id: str, payload: WhatIfPayload, db: Session = Depends(get_db)):
+    """Runs a non-destructive linear What-If projection on the investigation's dataset."""
+    _validate_inv_id(inv_id)
+    inv = db.query(Investigation).filter(Investigation.id == inv_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+
+    fused_path = settings.STORAGE_DIR / inv_id / "fused_dataset.csv"
+    if fused_path.exists():
+        df = pd.read_csv(fused_path)
+    else:
+        ds = db.query(DatasetRecord).filter(DatasetRecord.investigation_id == inv_id).first()
+        if not ds:
+            raise HTTPException(status_code=400, detail="No datasets available for What-If simulation.")
+        df = load_file_into_dataframe(ds.file_path)
+
+    try:
+        result = simulate_what_if_scenario(df, payload.target_col, payload.predictor_col, payload.delta_pct)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {"status": "success", "simulation": result}
 
 @router.post("/investigations/{inv_id}/budget/optimize")
 def optimize_budget(
@@ -1036,6 +1072,24 @@ def get_investigation_charts(inv_id: str, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/health")
+def health_check(db: Session = Depends(get_db)):
+    """Reports database connectivity, storage writability, and platform status."""
+    db_ok = False
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+    storage_ok = settings.STORAGE_DIR.exists() and os.access(settings.STORAGE_DIR, os.W_OK)
+    return {
+        "status": "healthy" if (db_ok and storage_ok) else "degraded",
+        "version": settings.VERSION,
+        "database": "connected" if db_ok else "error",
+        "storage": "writable" if storage_ok else "error",
+    }
+
+
 @router.get("/settings/status")
 def get_platform_settings_status():
     return {
@@ -1113,8 +1167,39 @@ def ingest_supplemental_evidence(
 # Reports & Audit History
 # -------------------------------------------------------------
 @router.get("/investigations/{inv_id}/report")
-def get_report(inv_id: str, db: Session = Depends(get_db)):
-    return generate_investigation_report(db, inv_id)
+def get_report(inv_id: str, format: str = "json", db: Session = Depends(get_db)):
+    _validate_inv_id(inv_id)
+    report = generate_investigation_report(db, inv_id)
+    if "error" in report:
+        raise HTTPException(status_code=404, detail=report["error"])
+
+    if format.lower() == "csv":
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow([
+            "Finding_ID", "Title", "Priority", "Priority_Score", "Metric",
+            "Baseline_Value", "Observed_Value", "Change_Pct", "P_Value", "Timestamp"
+        ])
+        for a in report.get("anomalies_discovered", []):
+            writer.writerow([
+                a.get("id"),
+                a.get("title"),
+                a.get("priority"),
+                a.get("priority_score"),
+                a.get("metric"),
+                a.get("baseline_value"),
+                a.get("anomaly_value"),
+                a.get("percentage_change"),
+                a.get("p_value"),
+                a.get("detected_timestamp"),
+            ])
+        return Response(
+            content=buf.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=REVERSE_AI_FINDINGS_{inv_id}.csv"},
+        )
+
+    return report
 
 # -------------------------------------------------------------
 # Hackathon Demonstration Mode

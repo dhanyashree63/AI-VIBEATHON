@@ -151,6 +151,23 @@ export async function evaluateHypotheses(invId) {
   return res.json();
 }
 
+export async function runWhatIfSimulation(invId, targetCol, predictorCol, deltaPct) {
+  const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(invId)}/what-if`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_col: targetCol,
+      predictor_col: predictorCol,
+      delta_pct: Number(deltaPct)
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'What-If simulation failed' }));
+    throw new Error(err.detail || 'What-If simulation failed');
+  }
+  return res.json();
+}
+
 export async function generateRecommendations(invId) {
   const res = await fetch(`${API_BASE}/investigations/${invId}/recommendations/generate`, {
     method: 'POST'

@@ -222,7 +222,7 @@ export default function NextBestEvidence({ investigation, onRefresh, onExecuteNe
           />
           <input
             type="file"
-            accept=".csv,.xlsx,.json"
+            accept=".csv,.xlsx,.json,.txt"
             onChange={(e) => setSuppFile(e.target.files[0])}
             className="text-xs text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-slate-100 dark:file:bg-slate-800 file:text-slate-800 dark:file:text-slate-200 cursor-pointer"
           />
@@ -331,14 +331,22 @@ export default function NextBestEvidence({ investigation, onRefresh, onExecuteNe
                     <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <div>
                       <div className="text-[10px] text-slate-500 uppercase">Est. Cost</div>
-                      <div className="font-bold text-slate-900 dark:text-white">${rec.estimated_cost_usd?.toLocaleString()}</div>
+                      <div className="font-bold text-slate-900 dark:text-white">
+                        {rec.estimated_cost_usd !== null && rec.estimated_cost_usd !== undefined
+                          ? `$${rec.estimated_cost_usd.toLocaleString()}`
+                          : 'Cost not provided'}
+                      </div>
                     </div>
                   </div>
                   <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 flex items-center gap-2.5">
                     <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     <div>
                       <div className="text-[10px] text-slate-500 uppercase">Est. Duration</div>
-                      <div className="font-bold text-slate-900 dark:text-white">{rec.estimated_duration_days} Days</div>
+                      <div className="font-bold text-slate-900 dark:text-white">
+                        {rec.estimated_duration_days !== null && rec.estimated_duration_days !== undefined
+                          ? `${rec.estimated_duration_days} Days`
+                          : 'Not provided'}
+                      </div>
                     </div>
                   </div>
                   <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 flex items-center gap-2.5">
