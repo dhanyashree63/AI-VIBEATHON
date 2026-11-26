@@ -1,12 +1,14 @@
 import React from 'react';
 import { CheckCircle2, Database, Search, Scale, Compass } from 'lucide-react';
+import { useI18n } from '../context/I18nContext';
 
 export default function HeroIllustration({ investigationsCount = 0, datasetsCount = 0 }) {
+  const { t } = useI18n();
   const stages = [
-    { icon: Database, label: 'Evidence Fusion', detail: 'Schema, quality & key joins' },
-    { icon: Search, label: 'Anomaly Discovery', detail: "Welch's t-test & Isolation Forest" },
-    { icon: Scale, label: 'Competing Explanations', detail: "Cohen's d, 95% CI & confounders" },
-    { icon: Compass, label: 'Next-Best Evidence', detail: 'Shannon entropy info gain' }
+    { icon: Database, label: t('stage_fusion'), detail: t('stage_fusion_desc') },
+    { icon: Search, label: t('stage_anomaly'), detail: t('stage_anomaly_desc') },
+    { icon: Scale, label: t('stage_competing'), detail: t('stage_competing_desc') },
+    { icon: Compass, label: t('stage_next'), detail: t('stage_next_desc') }
   ];
 
   return (
@@ -14,18 +16,18 @@ export default function HeroIllustration({ investigationsCount = 0, datasetsCoun
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
         <div>
           <div className="text-xs font-semibold text-slate-900 dark:text-white">
-            Investigation Engine Pipeline
+            {t('pipeline_title')}
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400">
-            Grounded Python statistical workflow
+            {t('pipeline_subtitle')}
           </div>
         </div>
         <div className="flex items-center gap-3 font-mono text-[11px]">
           <span className="px-2 py-0.5 rounded bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-            {investigationsCount} sessions
+            {investigationsCount} {t('sessions_unit')}
           </span>
           <span className="px-2 py-0.5 rounded bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-            {datasetsCount} files
+            {datasetsCount} {t('files_unit')}
           </span>
         </div>
       </div>

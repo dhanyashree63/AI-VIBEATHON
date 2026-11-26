@@ -19,5 +19,5 @@ COPY run.py ./
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD python -c "import os, urllib.request; p=os.getenv('X_ZOHO_CATALYST_LISTEN_PORT') or os.getenv('PORT') or '8000'; urllib.request.urlopen(f'http://127.0.0.1:{p}/api/health')"
-CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${X_ZOHO_CATALYST_LISTEN_PORT:-${PORT:-8000}} --workers 1"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

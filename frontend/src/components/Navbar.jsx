@@ -109,7 +109,7 @@ export default function Navbar({
           </button>
 
           {langOpen && (
-            <div className="absolute right-0 mt-1.5 w-44 rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 shadow-lg py-1 z-50">
+            <div className="absolute right-0 mt-1.5 w-52 max-h-80 overflow-y-auto rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 shadow-lg py-1 z-50">
               {LANGUAGES.map((l) => (
                 <button
                   key={l.code}
@@ -123,8 +123,13 @@ export default function Navbar({
                       : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span>{l.native}</span>
-                  <span className="font-mono text-[10px] uppercase text-slate-400">{l.code}</span>
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span>{l.native}</span>
+                    {l.native !== l.label && (
+                      <span className="text-[10px] text-slate-400">({l.label})</span>
+                    )}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase text-slate-400 shrink-0">{l.code}</span>
                 </button>
               ))}
             </div>
@@ -161,7 +166,7 @@ export default function Navbar({
               </div>
               <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 mt-1">
                 {recentEvents.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-slate-500">No activity recorded yet.</div>
+                  <div className="py-6 text-center text-xs text-slate-500">{t('no_activity_yet')}</div>
                 ) : (
                   recentEvents.slice(-5).reverse().map((ev) => (
                     <div key={ev.id} className="px-1.5 py-2">
@@ -199,7 +204,7 @@ export default function Navbar({
                   {user ? user.name : t('investigator_role')}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                  {user ? user.email : 'Local Workspace'}
+                  {user ? user.email : t('local_workspace')}
                 </div>
               </div>
               <div className="p-1 space-y-0.5">
@@ -212,7 +217,7 @@ export default function Navbar({
                     className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Sign Out</span>
+                    <span>{t('sign_out')}</span>
                   </button>
                 ) : (
                   <button
@@ -223,7 +228,7 @@ export default function Navbar({
                     className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition"
                   >
                     <LogIn className="w-3.5 h-3.5" />
-                    <span>Sign In / Register</span>
+                    <span>{t('sign_in_register')}</span>
                   </button>
                 )}
                 <button

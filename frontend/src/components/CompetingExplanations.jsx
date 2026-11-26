@@ -22,21 +22,23 @@ import {
 import { evaluateHypotheses, runWhatIfSimulation } from '../api';
 import StatusBadge from './StatusBadge';
 import { useTheme } from '../context/ThemeContext';
+import { useI18n } from '../context/I18nContext';
 
-function getSupportLevelLabel(h) {
-  if (h.status === 'proven_root_cause') return 'Strongly supported';
+function getSupportLevelLabel(h, t) {
+  if (h.status === 'proven_root_cause') return t('comp_strongly_supported');
   const s = h.strength_score || 0;
   if ((h.supporting_evidence?.length || 0) === 0 && (h.contradicting_evidence?.length || 0) === 0) {
-    return 'Insufficient evidence';
+    return t('comp_insufficient_ev');
   }
-  if (h.status === 'refuted' || s < 0.35) return 'Weakly supported';
-  if (s >= 0.72) return 'Strongly supported';
-  if (s >= 0.45) return 'Moderately supported';
-  return 'Weakly supported';
+  if (h.status === 'refuted' || s < 0.35) return t('comp_weakly_supported');
+  if (s >= 0.72) return t('comp_strongly_supported');
+  if (s >= 0.45) return t('comp_moderately_supported');
+  return t('comp_weakly_supported');
 }
 
 export default function CompetingExplanations({ investigation, onRefresh, isLoading }) {
   const { resolvedTheme } = useTheme();
+  const { t } = useI18n();
   const isDark = resolvedTheme === 'dark';
 
   const [expandedId, setExpandedId] = useState(null);
@@ -93,10 +95,10 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            Competing Explanations Engine
+            {t('comp_title')}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Statistical hypothesis testing, Cohen&apos;s d effect sizes, 95% confidence intervals, and confounder controls.
+            {t('comp_subtitle')}
           </p>
         </div>
 
@@ -106,19 +108,19 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
           className="inline-flex items-center gap-2 text-xs font-medium px-3.5 py-2 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white transition cursor-pointer"
         >
           <Scale className="w-3.5 h-3.5" />
-          <span>Re-Evaluate All</span>
+          <span>{t('comp_reevaluate')}</span>
         </button>
       </div>
 
       {hypotheses.length === 0 ? (
         <div className="p-10 text-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625] text-slate-500 dark:text-slate-400 text-xs">
-          No hypotheses generated yet. Upload data and discover anomalies first.
+          {t('comp_empty')}
         </div>
       ) : (
         <div className="space-y-4">
           <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625] space-y-2">
             <div className="text-xs font-semibold text-slate-900 dark:text-white">
-              Evidence Strength Comparison (%)
+              {t('comp_chart_title')}
             </div>
             <div className="h-52 w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -187,11 +189,11 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
                     <div className="flex flex-wrap items-center gap-2.5">
                       <StatusBadge status={h.status} />
                       <span className="text-[10.5px] font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-                        {getSupportLevelLabel(h)}
+                        {getSupportLevelLabel(h, t)}
                       </span>
                       {!isRoot && (
                         <span className="text-[10.5px] text-slate-400">
-                          Unverified (observational)
+                          {t('comp_unverified')}
                         </span>
                       )}
                       <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase">Category: {h.category}</span>
@@ -207,7 +209,7 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
                       }`}>
                         {Math.round(h.strength_score * 100)}%
                       </div>
-                      <div className="text-[10px] text-slate-500 font-mono">strength</div>
+                      <div className="text-[10px] text-slate-500 font-mono">{t('comp_strength')}</div>
                     </div>
                     <div className="text-slate-400">
                       {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -248,7 +250,7 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
                       <div className="space-y-2 p-4 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50">
                         <div className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400 text-[11px] uppercase">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Supporting ({h.supporting_evidence?.length || 0})</span>
+                          <span>{t('comp_supporting')} ({h.supporting_evidence?.length || 0})</span>
                         </div>
                         {h.supporting_evidence?.length > 0 ? (
                           <ul className="space-y-1.5 text-slate-700 dark:text-slate-300">
@@ -264,7 +266,7 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
                       <div className="space-y-2 p-4 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50">
                         <div className="flex items-center gap-1.5 font-semibold text-rose-700 dark:text-rose-400 text-[11px] uppercase">
                           <XCircle className="w-3.5 h-3.5" />
-                          <span>Contradicting ({h.contradicting_evidence?.length || 0})</span>
+                          <span>{t('comp_contradicting')} ({h.contradicting_evidence?.length || 0})</span>
                         </div>
                         {h.contradicting_evidence?.length > 0 ? (
                           <ul className="space-y-1.5 text-slate-700 dark:text-slate-300">
@@ -280,7 +282,7 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
                       <div className="space-y-2 p-4 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50">
                         <div className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-400 text-[11px] uppercase">
                           <FileQuestion className="w-3.5 h-3.5" />
-                          <span>Missing Evidence ({h.missing_evidence?.length || 0})</span>
+                          <span>{t('comp_missing_ev')} ({h.missing_evidence?.length || 0})</span>
                         </div>
                         {h.missing_evidence?.length > 0 ? (
                           <ul className="space-y-1.5 text-slate-700 dark:text-slate-300">
@@ -317,16 +319,16 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
             <div className="flex items-center gap-2">
               <Sliders className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">What-If Scenario Explorer</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t('comp_whatif_title')}</h3>
             </div>
             <span className="text-[10.5px] font-mono px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-              Simulated Projection (Does not modify data)
+              {t('comp_whatif_badge')}
             </span>
           </div>
 
           <form onSubmit={handleRunWhatIf} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">If variable changes</label>
+              <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{t('comp_if_var_changes')}</label>
               <select
                 value={effectivePred}
                 onChange={(e) => setWhatIfPred(e.target.value)}
@@ -350,7 +352,7 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Projected impact on</label>
+              <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{t('comp_projected_impact')}</label>
               <select
                 value={effectiveTarget}
                 onChange={(e) => setWhatIfTarget(e.target.value)}
@@ -366,7 +368,7 @@ export default function CompetingExplanations({ investigation, onRefresh, isLoad
               disabled={isSimulating || !effectivePred || !effectiveTarget || effectivePred === effectiveTarget}
               className="px-4 py-2 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-medium transition disabled:opacity-50 cursor-pointer"
             >
-              {isSimulating ? 'Simulating...' : 'Run Simulation'}
+              {isSimulating ? t('comp_simulating') : t('comp_run_sim')}
             </button>
           </form>
 

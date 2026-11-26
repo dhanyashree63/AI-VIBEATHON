@@ -42,10 +42,10 @@ export default function InvestigationHistory({ investigation }) {
     <div className="space-y-5">
       <div>
         <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-          Closed-Loop Discovery Memory
+          {t('hist_title')}
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Immutable audit trail of hypotheses, recommended experiments, incoming evidence, and updated conclusions.
+          {t('hist_subtitle')}
         </p>
       </div>
 
@@ -95,7 +95,7 @@ export default function InvestigationHistory({ investigation }) {
                   {snapshot.conclusions_changed && snapshot.conclusions_changed.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
                       <div className="text-[10.5px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase">
-                        Closed-Loop Conclusion Updates
+                        {t('hist_conclusion_updates')}
                       </div>
                       <div className="space-y-2">
                         {snapshot.conclusions_changed.map((c, idx) => (

@@ -88,7 +88,7 @@ export default function Sidebar({
               REVERSE AI
             </div>
             <div className="text-[10px] font-mono text-slate-400">
-              v2.0 Platform
+              {t('platform_version')}
             </div>
           </div>
         </button>
@@ -120,7 +120,7 @@ export default function Sidebar({
 
         <div className="pt-4 border-t border-white/[0.08] px-2">
           <div className="text-[11px] font-medium text-slate-400">
-            Discover &middot; Investigate &middot; Prove
+            {t('brand_tagline')}
           </div>
         </div>
       </div>

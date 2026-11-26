@@ -131,12 +131,12 @@ export default function NewInvestigationModal({ isOpen, onClose, onCreated }) {
 
           <div className="space-y-1.5">
             <label htmlFor="new-inv-desc" className="text-xs font-medium text-slate-700 dark:text-slate-300">
-              Description <span className="text-slate-400 font-normal">(optional)</span>
+              {t('modal_desc_label')}
             </label>
             <textarea
               id="new-inv-desc"
               rows={2}
-              placeholder="Describe the problem or question you want to investigate..."
+              placeholder={t('modal_desc_placeholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-slate-50 dark:bg-[#0B0F1A] border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500 leading-relaxed"
@@ -146,7 +146,7 @@ export default function NewInvestigationModal({ isOpen, onClose, onCreated }) {
           {/* Optional Dataset Upload */}
           <div className="space-y-2">
             <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-              Attach Dataset <span className="text-slate-400 font-normal">(optional — .csv, .xlsx, .json, .txt)</span>
+              {t('modal_attach_dataset')}
             </label>
             <input
               ref={fileRef}

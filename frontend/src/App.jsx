@@ -9,9 +9,10 @@ import Settings from './components/Settings';
 import Help from './components/Help';
 import NewInvestigationModal from './components/NewInvestigationModal';
 import OnboardingWizard from './components/OnboardingWizard';
+import IntroVideo from './components/IntroVideo';
 import AuthModal from './components/AuthModal';
+import InspectReportModal from './components/InspectReportModal';
 import {
-  API_BASE,
   fetchInvestigations,
   fetchInvestigation,
   loadDemoScenario,
@@ -20,6 +21,7 @@ import {
   clearAuthToken
 } from './api';
 import { CheckCircle2, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { useI18n } from './context/I18nContext';
 
 const ONBOARDING_STORAGE_KEY = 'reverse_ai_onboarding_completed';
 
@@ -35,16 +37,11 @@ function parseRoute(pathname) {
 }
 
 export default function App() {
+  const { t } = useI18n();
   const initialRoute = parseRoute(window.location.pathname);
 
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    if (initialRoute.viewingDetail) return false; // Direct /investigations/:id link skips onboarding
-    try {
-      return localStorage.getItem(ONBOARDING_STORAGE_KEY) !== 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [showIntro, setShowIntro] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const [activeTab, setActiveTab] = useState(initialRoute.tab);
   const [investigations, setInvestigations] = useState([]);
@@ -56,17 +53,29 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [inspectModal, setInspectModal] = useState(null); // { id, title }
   const [currentUser, setCurrentUser] = useState(null);
   const [backendOffline, setBackendOffline] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/health`)
+    // Use a 5-second timeout so a slow-starting backend doesn't falsely trigger offline mode
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    fetch('/api/health', { signal: controller.signal })
       .then((res) => {
+        clearTimeout(timer);
         if (!res.ok) setBackendOffline(true);
+        else setBackendOffline(false);
       })
-      .catch(() => setBackendOffline(true));
+      .catch((err) => {
+        clearTimeout(timer);
+        // Only mark offline if it's a real network failure, not a user navigation abort
+        if (err.name !== 'AbortError' || controller.signal.aborted) {
+          setBackendOffline(true);
+        }
+      });
     fetchCurrentUser().then((u) => {
       if (u) setCurrentUser(u);
     });
@@ -154,13 +163,9 @@ export default function App() {
   };
 
   const handleInspectInvestigation = (id) => {
-    const url = `/investigations/${encodeURIComponent(id)}`;
-    const newWin = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!newWin) {
-      // Graceful fallback if browser blocks popups
-      handleOpenInvestigation(id, 'summary');
-      showToast('Pop-up blocked — opened investigation in this tab.', 'success');
-    }
+    // Find the title from the loaded investigations list
+    const inv = investigations.find((i) => i.id === id);
+    setInspectModal({ id, title: inv?.title || id });
   };
 
   const handleClearSelection = () => {
@@ -261,6 +266,10 @@ export default function App() {
     datasets: currentInvestigation?.datasets?.length || 0
   };
 
+  if (showIntro) {
+    return <IntroVideo onComplete={() => setShowIntro(false)} />;
+  }
+
   if (showOnboarding) {
     return (
       <OnboardingWizard
@@ -277,7 +286,7 @@ export default function App() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-indigo-600 focus:text-white focus:text-xs focus:font-semibold"
       >
-        Skip to main content
+        {t('skip_to_main')}
       </a>
       <Sidebar
         activeTab={activeTab}
@@ -309,7 +318,7 @@ export default function App() {
             <div className="max-w-6xl mx-auto mb-5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>
-                <strong>Static Preview Mode:</strong> No live Python/FastAPI backend is connected at <code>/api</code>. Run <code>python run.py</code> locally or deploy via Docker for dataset uploads and statistical analysis.
+                <strong>{t('backend_offline_title')}</strong> {t('backend_offline_desc')}
               </span>
             </div>
           )}
@@ -342,7 +351,7 @@ export default function App() {
                   <AlertCircle className="w-5 h-5" />
                 </div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  {loadError.status === 404 ? 'Investigation Not Found' : 'Unable to Load Investigation'}
+                  {loadError.status === 404 ? t('inv_not_found') : t('unable_to_load_inv')}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                   {loadError.message} ({loadError.id})
@@ -354,7 +363,7 @@ export default function App() {
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>All Investigations</span>
+                    <span>{t('all_investigations')}</span>
                   </button>
                   <button
                     type="button"
@@ -362,7 +371,7 @@ export default function App() {
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-medium"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Retry</span>
+                    <span>{t('retry_btn')}</span>
                   </button>
                 </div>
               </div>
@@ -458,6 +467,15 @@ export default function App() {
           showToast('New investigation session created.');
         }}
       />
+
+      {/* Inspect Report Modal */}
+      {inspectModal && (
+        <InspectReportModal
+          investigationId={inspectModal.id}
+          investigationTitle={inspectModal.title}
+          onClose={() => setInspectModal(null)}
+        />
+      )}
     </div>
   );
 }

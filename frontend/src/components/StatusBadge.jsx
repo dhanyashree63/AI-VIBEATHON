@@ -27,27 +27,27 @@ export default function StatusBadge({ status }) {
     dot = 'bg-emerald-600 dark:bg-emerald-400';
     if (normalized === 'proven root cause') label = t('status_proven');
     else if (normalized === 'completed') label = t('status_completed');
-    else label = 'Supported';
+    else label = t('status_supported');
   } else if (normalized === 'processing' || normalized === 'in progress' || normalized === 'active') {
     styles = 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800/70';
     dot = 'bg-indigo-600 dark:bg-indigo-400';
-    label = normalized === 'processing' ? 'Processing' : t('status_in_progress');
+    label = normalized === 'processing' ? t('status_processing') : t('status_in_progress');
   } else if (normalized === 'ready') {
     styles = 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/70';
     dot = 'bg-blue-600 dark:bg-blue-400';
-    label = 'Ready';
+    label = t('status_ready');
   } else if (normalized === 'draft' || normalized === 'inconclusive') {
     styles = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70';
     dot = 'bg-amber-500 dark:bg-amber-400';
-    label = normalized === 'draft' ? t('status_draft') : 'Inconclusive';
+    label = normalized === 'draft' ? t('status_draft') : t('status_inconclusive');
   } else if (normalized === 'archived') {
     styles = 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:border-slate-700';
     dot = 'bg-slate-400';
-    label = 'Archived';
+    label = t('status_archived');
   } else if (normalized === 'failed' || normalized === 'refuted' || normalized === 'critical' || normalized === 'high') {
     styles = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/70';
     dot = 'bg-rose-600 dark:bg-rose-400';
-    label = normalized === 'refuted' ? t('status_refuted') : status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+    label = normalized === 'refuted' ? t('status_refuted') : (normalized === 'failed' ? t('status_failed') : status.charAt(0).toUpperCase() + status.slice(1).toLowerCase());
   }
 
   return (

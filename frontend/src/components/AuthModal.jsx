@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Lock, AlertCircle } from 'lucide-react';
 import { loginAccount, registerAccount } from '../api';
+import { useI18n } from '../context/I18nContext';
 
 export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
+  const { t } = useI18n();
   const [mode, setMode] = useState('login'); // login | register
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -50,7 +52,7 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <h2 id="auth-modal-title" className="text-sm font-semibold text-slate-900 dark:text-white">
-              {mode === 'login' ? 'Sign In to REVERSE AI' : 'Create Investigator Account'}
+              {mode === 'login' ? t('auth_signin_title') : t('auth_register_title')}
             </h2>
           </div>
           <button
@@ -67,7 +69,7 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
           {mode === 'register' && (
             <div className="space-y-1">
               <label htmlFor="auth-name" className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Full Name
+                {t('auth_fullname')}
               </label>
               <input
                 id="auth-name"
@@ -83,7 +85,7 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
 
           <div className="space-y-1">
             <label htmlFor="auth-email" className="text-xs font-medium text-slate-700 dark:text-slate-300">
-              Email Address
+              {t('auth_email')}
             </label>
             <input
               id="auth-email"
@@ -97,7 +99,7 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
 
           <div className="space-y-1">
             <label htmlFor="auth-password" className="text-xs font-medium text-slate-700 dark:text-slate-300">
-              Password <span className="text-slate-400">(min 8 chars)</span>
+              {t('auth_password')}
             </label>
             <input
               id="auth-password"
@@ -133,7 +135,7 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
               disabled={submitting}
               className="px-4 py-2 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-medium transition disabled:opacity-50"
             >
-              {submitting ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
+              {submitting ? '...' : (mode === 'login' ? t('auth_signin_btn') : t('auth_register_btn'))}
             </button>
           </div>
         </form>

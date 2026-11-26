@@ -30,6 +30,7 @@ import {
 } from 'recharts';
 import { triggerAnomalyDiscovery, toggleFindingMark } from '../api';
 import StatusBadge from './StatusBadge';
+import { useI18n } from '../context/I18nContext';
 
 function PriorityBadge({ priority }) {
   const p = (priority || 'medium').toLowerCase();
@@ -84,6 +85,7 @@ function FindingChart({ chartData }) {
 }
 
 export default function Discoveries({ investigation, onRefresh, isLoading }) {
+  const { t } = useI18n();
   const inv = investigation?.investigation;
   const rawFindings = investigation?.anomalies || [];
 
@@ -203,10 +205,10 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-            Autonomous Unusual Pattern Discovery
+            {t('disc_title')}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Statistical outlier detection, time-series shifts, correlations, distribution checks, and segment comparisons computed from your data.
+            {t('disc_subtitle')}
           </p>
         </div>
 
@@ -220,7 +222,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
           ) : (
             <Activity className="w-3.5 h-3.5" />
           )}
-          <span>{isScanning || inv?.status === 'processing' ? 'Scanning Dataset...' : 'Run Discovery Scan'}</span>
+          <span>{isScanning || inv?.status === 'processing' ? t('disc_scanning') : t('disc_run_scan')}</span>
         </button>
       </div>
 
@@ -237,36 +239,36 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
       {/* Discovery Overview */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625]">
-          <div className="text-[11px] text-slate-500">Total Patterns</div>
+          <div className="text-[11px] text-slate-500">{t('disc_total_patterns')}</div>
           <div className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-0.5">{counts.total}</div>
         </div>
         <div className="p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-white dark:bg-[#111625]">
-          <div className="text-[11px] text-rose-600 dark:text-rose-400">High Priority</div>
+          <div className="text-[11px] text-rose-600 dark:text-rose-400">{t('disc_high_priority')}</div>
           <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-0.5">{counts.high}</div>
         </div>
         <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-white dark:bg-[#111625]">
-          <div className="text-[11px] text-amber-600 dark:text-amber-400">Medium Priority</div>
+          <div className="text-[11px] text-amber-600 dark:text-amber-400">{t('disc_medium_priority')}</div>
           <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">{counts.medium}</div>
         </div>
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625]">
-          <div className="text-[11px] text-slate-500">Low Priority</div>
+          <div className="text-[11px] text-slate-500">{t('disc_low_priority')}</div>
           <div className="text-xl font-bold font-mono text-slate-700 dark:text-slate-300 mt-0.5">{counts.low}</div>
         </div>
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625]">
-          <div className="text-[11px] text-slate-500">Scan Status</div>
+          <div className="text-[11px] text-slate-500">{t('disc_scan_status')}</div>
           <div className="text-xs font-semibold text-slate-900 dark:text-white mt-1.5 flex items-center gap-1.5">
             {inv?.status === 'processing' ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                <span>Running</span>
+                <span>{t('disc_running')}</span>
               </>
             ) : findings.length > 0 ? (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>v{metaSource.analysis_version || 1} Complete</span>
+                <span>v{metaSource.analysis_version || 1} {t('disc_complete')}</span>
               </>
             ) : (
-              <span className="text-slate-500">Not scanned</span>
+              <span className="text-slate-500">{t('disc_not_scanned')}</span>
             )}
           </div>
         </div>
@@ -278,7 +280,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
               <Compass className="w-4 h-4" />
-              <span>Discovery Summary</span>
+              <span>{t('disc_summary')}</span>
             </span>
             {metaSource.performance && (
               <span className="text-[11px] font-mono text-slate-500">
@@ -306,7 +308,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
                     : 'bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
-                {lvl === 'all' ? `All (${counts.total})` : `${lvl} (${counts[lvl]})`}
+                {lvl === 'all' ? `${t('disc_all')} (${counts.total})` : `${lvl} (${counts[lvl]})`}
               </button>
             ))}
           </div>
@@ -318,7 +320,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search patterns or variables..."
+                placeholder={t('disc_search_placeholder')}
                 className="pl-8 pr-3 py-1.5 rounded-lg bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 w-52"
               />
             </div>
@@ -328,9 +330,9 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
               onChange={(e) => setSortBy(e.target.value)}
               className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
             >
-              <option value="priority_score">Sort: Priority Score</option>
-              <option value="evidence">Sort: Evidence Strength</option>
-              <option value="title">Sort: Title</option>
+              <option value="priority_score">{t('disc_sort_priority')}</option>
+              <option value="evidence">{t('disc_sort_evidence')}</option>
+              <option value="title">{t('disc_sort_title')}</option>
             </select>
           </div>
         </div>
@@ -340,8 +342,8 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
       {filteredFindings.length === 0 ? (
         <div className="p-10 text-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625] text-slate-500 dark:text-slate-400 text-xs">
           {findings.length === 0
-            ? 'No unusual patterns discovered yet. Upload a dataset and click "Run Discovery Scan".'
-            : 'No unusual patterns match your current filter or search query.'}
+            ? t('disc_empty')
+            : t('disc_empty_filter')}
         </div>
       ) : (
         <div className="space-y-3">
@@ -363,7 +365,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                         : 'bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                     }`}>
-                      {f.evidence_strength === 'statistically_supported' ? 'Statistically Supported' : 'Exploratory Observation'}
+                      {f.evidence_strength === 'statistically_supported' ? t('disc_stat_supported') : t('disc_exploratory')}
                     </span>
                     <span className="text-[11px] font-mono text-slate-400">
                       Score: {f.priority_score}/100
@@ -397,7 +399,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
                     }`}
                   >
                     {f.marked_for_investigation ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
-                    <span>{f.marked_for_investigation ? 'Marked' : 'Mark to Investigate'}</span>
+                    <span>{f.marked_for_investigation ? t('disc_marked') : t('disc_mark_btn')}</span>
                   </button>
 
                   <button
@@ -405,7 +407,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
                     className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span>{selectedFindingId === f.id ? 'Hide Details' : 'View Evidence'}</span>
+                    <span>{selectedFindingId === f.id ? t('disc_hide_details') : t('disc_view_evidence')}</span>
                   </button>
                 </div>
               </div>
@@ -440,11 +442,11 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
           {/* Measured Values & Statistical Details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase">Method Used</div>
+              <div className="text-[10px] text-slate-500 uppercase">{t('disc_method_used')}</div>
               <div className="font-semibold text-slate-900 dark:text-slate-100 mt-1">{selectedFinding.statistical_method}</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase">Scope</div>
+              <div className="text-[10px] text-slate-500 uppercase">{t('disc_scope')}</div>
               <div className="font-semibold text-slate-900 dark:text-slate-100 mt-1">{selectedFinding.relevant_scope}</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800">
@@ -481,7 +483,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
           {/* Evidence, Why It Matters, Limitations, Next Step */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div className="space-y-2 p-3.5 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800">
-              <div className="font-semibold text-slate-900 dark:text-white">Supporting Evidence</div>
+              <div className="font-semibold text-slate-900 dark:text-white">{t('disc_supporting_ev')}</div>
               <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-300">
                 {(selectedFinding.supporting_evidence || []).map((ev, idx) => (
                   <li key={idx}>{ev}</li>
@@ -489,14 +491,14 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
               </ul>
               {selectedFinding.why_it_matters && (
                 <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                  <span className="font-semibold text-slate-900 dark:text-white">Why it matters: </span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{t('disc_why_matters')} </span>
                   <span className="text-slate-600 dark:text-slate-300">{selectedFinding.why_it_matters}</span>
                 </div>
               )}
             </div>
 
             <div className="space-y-2 p-3.5 rounded-lg bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/60">
-              <div className="font-semibold text-amber-800 dark:text-amber-300">Limitations &amp; Caveats</div>
+              <div className="font-semibold text-amber-800 dark:text-amber-300">{t('disc_limitations')}</div>
               <ul className="list-disc pl-4 space-y-1 text-amber-800/90 dark:text-amber-200/90">
                 {(selectedFinding.limitations || []).map((lim, idx) => (
                   <li key={idx}>{lim}</li>
@@ -504,7 +506,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
               </ul>
               {selectedFinding.suggested_next_step && (
                 <div className="pt-2 border-t border-amber-200/70 dark:border-amber-900/60 text-slate-700 dark:text-slate-200">
-                  <span className="font-semibold">Suggested next step: </span>
+                  <span className="font-semibold">{t('disc_suggested_next')} </span>
                   <span>{selectedFinding.suggested_next_step}</span>
                 </div>
               )}
@@ -513,7 +515,7 @@ export default function Discoveries({ investigation, onRefresh, isLoading }) {
 
           {selectedFinding.affected_entities && selectedFinding.affected_entities.length > 0 && (
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-900 dark:text-white">Segment Breakdown</div>
+              <div className="text-xs font-semibold text-slate-900 dark:text-white">{t('disc_segment_breakdown')}</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 {selectedFinding.affected_entities.map((ent, idx) => (
                   <div key={idx} className="p-3 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 text-xs font-mono">

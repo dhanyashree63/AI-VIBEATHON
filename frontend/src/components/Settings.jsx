@@ -20,9 +20,9 @@ export default function Settings({ onReopenOnboarding }) {
   const sec = status?.security;
 
   const themeCards = [
-    { id: 'light', label: t('theme_light'), desc: 'Bright neutral workspace with dark ink', icon: Sun },
-    { id: 'dark', label: t('theme_dark'), desc: 'Deep navy & charcoal low-glare surfaces', icon: Moon },
-    { id: 'system', label: t('theme_system'), desc: `Matches OS preference (currently ${resolvedTheme})`, icon: Monitor }
+    { id: 'light', label: t('theme_light'), desc: t('theme_light_desc'), icon: Sun },
+    { id: 'dark', label: t('theme_dark'), desc: t('theme_dark_desc'), icon: Moon },
+    { id: 'system', label: t('theme_system'), desc: `${t('theme_system_desc')} (${resolvedTheme})`, icon: Monitor }
   ];
 
   return (
@@ -43,7 +43,7 @@ export default function Settings({ onReopenOnboarding }) {
             <Sun className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>{t('theme_label')}</span>
           </div>
-          <span className="text-[11px] font-mono text-slate-500">Saved locally</span>
+          <span className="text-[11px] font-mono text-slate-500">{t('saved_locally')}</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -107,13 +107,13 @@ export default function Settings({ onReopenOnboarding }) {
       <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625] space-y-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
           <Sliders className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span>Analysis Preferences</span>
+          <span>{t('analysis_prefs')}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div>
-              <div className="font-semibold text-slate-900 dark:text-white">Automatic PII Scanning</div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Flag emails, SSNs, and phones on upload</div>
+              <div className="font-semibold text-slate-900 dark:text-white">{t('auto_pii_title')}</div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{t('auto_pii_desc')}</div>
             </div>
             <input
               type="checkbox"
@@ -125,8 +125,8 @@ export default function Settings({ onReopenOnboarding }) {
 
           <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
             <div>
-              <div className="font-semibold text-slate-900 dark:text-white">Significance Threshold (&alpha;)</div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Two-sided Welch t-test cutoff</div>
+              <div className="font-semibold text-slate-900 dark:text-white">{t('alpha_title')}</div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{t('alpha_desc')}</div>
             </div>
             <select
               value={alphaLevel}
@@ -145,23 +145,23 @@ export default function Settings({ onReopenOnboarding }) {
       <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625] space-y-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
           <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>Security &amp; Engine Status</span>
+          <span>{t('security_engine_status')}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
           <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <span className="text-slate-700 dark:text-slate-300">Path Traversal Protection</span>
+            <span className="text-slate-700 dark:text-slate-300">{t('path_traversal_label')}</span>
             <span className="text-emerald-600 dark:text-emerald-400 font-bold">{sec?.path_traversal_protection !== false ? 'ACTIVE' : 'OFF'}</span>
           </div>
           <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <span className="text-slate-700 dark:text-slate-300">PII Detection &amp; Masking</span>
+            <span className="text-slate-700 dark:text-slate-300">{t('pii_masking_label')}</span>
             <span className="text-emerald-600 dark:text-emerald-400 font-bold">{sec?.pii_detection_and_masking !== false ? 'ACTIVE' : 'OFF'}</span>
           </div>
           <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <span className="text-slate-700 dark:text-slate-300">Active Provider</span>
+            <span className="text-slate-700 dark:text-slate-300">{t('active_provider_label')}</span>
             <span className="text-indigo-600 dark:text-indigo-400 font-bold truncate ml-2">{ai?.active_provider || 'deterministic_statistical_engine'}</span>
           </div>
           <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0D1220] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <span className="text-slate-700 dark:text-slate-300">Upload Limit</span>
+            <span className="text-slate-700 dark:text-slate-300">{t('upload_limit_label')}</span>
             <span className="text-slate-900 dark:text-white font-bold">
               {sec?.max_upload_mb || 50} MB ({(sec?.allowed_extensions || ['.csv', '.json', '.xlsx']).join(', ')})
             </span>

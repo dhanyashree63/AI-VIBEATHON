@@ -1,7 +1,4 @@
-export const API_BASE =
-  typeof window !== 'undefined' && window.location.hostname.endsWith('.onslate.in')
-    ? 'https://reverse-ai-2-50048086021.development.catalystappsail.in/api'
-    : '/api';
+const API_BASE = '/api';
 const TOKEN_KEY = 'reverse_ai_token';
 
 export function getAuthToken() {
@@ -106,7 +103,7 @@ export async function createInvestigation(formData) {
 export async function updateInvestigation(id, payload) {
   const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
   if (!res.ok) {
@@ -118,8 +115,7 @@ export async function updateInvestigation(id, payload) {
 
 export async function deleteInvestigation(id) {
   const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers: authHeaders()
+    method: 'DELETE'
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Failed to delete investigation' }));
@@ -130,8 +126,7 @@ export async function deleteInvestigation(id) {
 
 export async function runInvestigationAnalysis(id) {
   const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(id)}/run-analysis`, {
-    method: 'POST',
-    headers: authHeaders()
+    method: 'POST'
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Analysis execution failed' }));
@@ -148,7 +143,6 @@ export async function uploadDataset(invId, file, name, isSupplemental = false) {
 
   const res = await fetch(`${API_BASE}/investigations/${invId}/datasets/upload`, {
     method: 'POST',
-    headers: authHeaders(),
     body: formData
   });
   if (!res.ok) {
@@ -159,15 +153,14 @@ export async function uploadDataset(invId, file, name, isSupplemental = false) {
 }
 
 export async function previewDataset(invId, dsId) {
-  const res = await fetch(`${API_BASE}/investigations/${invId}/datasets/${dsId}/preview`, { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/investigations/${invId}/datasets/${dsId}/preview`);
   if (!res.ok) throw new Error('Failed to preview dataset');
   return res.json();
 }
 
 export async function deleteDataset(invId, dsId) {
   const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(invId)}/datasets/${encodeURIComponent(dsId)}`, {
-    method: 'DELETE',
-    headers: authHeaders()
+    method: 'DELETE'
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Failed to remove dataset' }));
@@ -178,8 +171,7 @@ export async function deleteDataset(invId, dsId) {
 
 export async function fuseDatasets(invId) {
   const res = await fetch(`${API_BASE}/investigations/${invId}/fuse`, {
-    method: 'POST',
-    headers: authHeaders()
+    method: 'POST'
   });
   if (!res.ok) throw new Error('Failed to fuse datasets');
   return res.json();
@@ -191,7 +183,6 @@ export async function triggerAnomalyDiscovery(invId, metricCol, background = fal
   if (background) form.append('background', 'true');
   const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(invId)}/discover`, {
     method: 'POST',
-    headers: authHeaders(),
     body: form
   });
   if (!res.ok) {
@@ -204,7 +195,7 @@ export async function triggerAnomalyDiscovery(invId, metricCol, background = fal
 export async function toggleFindingMark(invId, findingId, marked) {
   const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(invId)}/findings/${encodeURIComponent(findingId)}`, {
     method: 'PATCH',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ marked_for_investigation: marked })
   });
   if (!res.ok) {
@@ -216,8 +207,7 @@ export async function toggleFindingMark(invId, findingId, marked) {
 
 export async function evaluateHypotheses(invId) {
   const res = await fetch(`${API_BASE}/investigations/${invId}/hypotheses/evaluate`, {
-    method: 'POST',
-    headers: authHeaders()
+    method: 'POST'
   });
   if (!res.ok) throw new Error('Hypothesis evaluation failed');
   return res.json();
@@ -226,7 +216,7 @@ export async function evaluateHypotheses(invId) {
 export async function runWhatIfSimulation(invId, targetCol, predictorCol, deltaPct) {
   const res = await fetch(`${API_BASE}/investigations/${encodeURIComponent(invId)}/what-if`, {
     method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       target_col: targetCol,
       predictor_col: predictorCol,
@@ -242,8 +232,7 @@ export async function runWhatIfSimulation(invId, targetCol, predictorCol, deltaP
 
 export async function generateRecommendations(invId) {
   const res = await fetch(`${API_BASE}/investigations/${invId}/recommendations/generate`, {
-    method: 'POST',
-    headers: authHeaders()
+    method: 'POST'
   });
   if (!res.ok) throw new Error('Recommendations formulation failed');
   return res.json();
@@ -257,7 +246,6 @@ export async function optimizeBudget(invId, maxBudget, maxDays, maxObservations 
   form.append('max_parallel_experiments', maxParallel);
   const res = await fetch(`${API_BASE}/investigations/${invId}/budget/optimize`, {
     method: 'POST',
-    headers: authHeaders(),
     body: form
   });
   if (!res.ok) throw new Error('Budget optimization failed');
@@ -265,7 +253,7 @@ export async function optimizeBudget(invId, maxBudget, maxDays, maxObservations 
 }
 
 export async function fetchInvestigationCharts(invId) {
-  const res = await fetch(`${API_BASE}/investigations/${invId}/charts`, { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/investigations/${invId}/charts`);
   if (!res.ok) throw new Error('Failed to fetch chart data');
   return res.json();
 }

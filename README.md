@@ -1,89 +1,82 @@
 # REVERSE AI 2.0
-> **Discover. Investigate. Prove.**  
-> *"Most analytics tools answer the questions you ask. REVERSE AI investigates the questions you didn't know you needed to ask."*
+> **Discover. Investigate. Prove.**
 
----
+## The Problem
 
-## 🚀 Overview
+When a metric suddenly drops (factory output, sales, uptime), teams usually
+have fragmented data across several systems and a pile of plausible-sounding
+guesses. Dashboards show *what* changed, not *why*, and LLM summaries tend to
+sound confident without being verifiable. Analysts then lose days chasing the
+wrong cause, often fooled by confounders and misleading correlations.
 
-**REVERSE AI 2.0** is an autonomous data investigation platform designed for complex operational environments. Rather than presenting passive dashboards or speculative LLM summaries, REVERSE AI formulates competing causal explanations, executes rigorous statistical hypothesis testing, identifies missing evidence, and determines the **Next-Best Evidence** using transparent mathematical scoring.
+## Who It's For
 
-```
-DISCOVER ──► INVESTIGATE ──► CHALLENGE ──► IDENTIFY MISSING EVIDENCE ──► RECOMMEND ──► LEARN
-```
+Operations, maintenance and data teams in industrial and other
+data-heavy environments who need to find the root cause of an unexplained
+change and justify it with evidence.
 
----
+## What It Does
 
-## 🏗️ Architecture & Modules
+REVERSE AI is an investigation workflow, not a dashboard:
 
-The platform is structured into modular layers:
+1. **Ingests and fuses** multiple messy datasets (CSV, XLSX, JSON).
+2. **Detects the anomaly** (change-point detection, Isolation Forest).
+3. **Generates competing explanations** and tests each statistically
+   (Welch's t-test, Cohen's d, confidence intervals, controlled regression).
+4. **Identifies missing evidence** and ranks the next data to collect by
+   expected information gain per dollar and per day.
+5. **Learns**: re-scores hypotheses when new evidence arrives and records why
+   conclusions changed.
 
-- **Ingestion & Profiling** (`backend/app/engine/ingestion.py`):
-  Multi-format parsing (CSV, XLSX, JSON), automated schema and data type classification, missing-value and duplicate detection, timestamp identification, unit conflict detection, and data quality scoring.
-- **Fragmented Evidence Fusion** (`backend/app/engine/data_fusion.py`):
-  Automated join-key candidate detection, compound timestamp + entity matching (preventing Cartesian explosion), match rate auditing, and caveat reporting.
-- **Anomaly Detection** (`backend/app/engine/anomaly_detection.py`):
-  Change-point detection with Welch's t-test verification and Isolation Forest multivariate outlier scanning.
-- **Hypothesis Testing Engine** (`backend/app/engine/hypothesis_testing.py`):
-  Python statistical computations using **SciPy**, **NumPy**, and **scikit-learn**:
-  - Two-sample Welch's t-test ($p$-values)
-  - Cohen's $d$ effect sizes
-  - 95% Confidence Intervals for mean differences
-  - Bivariate Pearson $r$ and Spearman $\rho$ correlations
-  - Controlled multiple linear regression (testing confounder attenuation)
-  - Transparent evidence strength scoring ($0.05$ to $0.98$).
-- **Next-Best-Evidence Engine** (`backend/app/engine/next_best_evidence.py`):
-  Computes Shannon entropy across the hypothesis probability distribution and calculates **Expected Information Gain (bits)** and **Expected Uncertainty Reduction (%)**, estimating required sample sizes via statistical power analysis.
-- **Investigation Budget Optimizer** (`backend/app/engine/budget_optimizer.py`):
-  Constrained multi-criteria optimization balancing information gain per dollar and information gain per day under user budget and time constraints.
-- **Closed-Loop Discovery Memory** (`backend/app/engine/investigation_memory.py`):
-  Persistent SQLite audit log preserving historical states, updating priors when new evidence arrives, identifying contradictions, and explaining conclusion changes.
-- **Enterprise Frontend Workspace** (`frontend/src/`):
-  Built with **React 18**, **Tailwind CSS**, and **Lucide Icons**. Clean, restrained enterprise UX without generic templates.
+## How AI Is Used
 
----
+- **Machine learning and statistics (core, implemented):** Isolation Forest
+  for multivariate anomalies, regression to test confounders, and
+  entropy-based information-gain scoring to choose the next investigation.
+  All numbers come from SciPy / scikit-learn, never from a language model.
+- **LLM narration (optional, grounded by design):** `ai_provider.py` defines a
+  provider interface for Gemini / OpenAI / Anthropic keys. Without a key (the
+  default), a deterministic explainer writes the plain-language summaries.
+  The design rule is that an LLM may only explain computed results, never
+  invent statistics.
 
-## 🏭 Manufacturing Demonstration Scenario
+## Before / After (included demo)
 
-The platform includes a complete, interconnected scenario:
-- **Problem Statement**: Plant-wide manufacturing output experienced an unexplained ~18.5% decline.
-- **Datasets Ingested**:
-  1. `machine_logs.csv` (machine RPM, cycle times, operating status, error flags)
-  2. `production_records.csv` (hourly output quotas, defect counts, shifts, operators)
-  3. `temperature_readings.csv` (spindle temperatures, ambient temperatures)
-  4. `maintenance_history.csv` (preventative maintenance intervals, component condition)
-  5. `energy_consumption.csv` (substation voltage, power kW draw)
-- **Planted Ground Truth**:
-  - **Root Cause**: Machine M-03 suffered from a sticking proportional coolant valve, resulting in coolant starvation ($< 12$ L/min vs 32 L/min nominal) and thermal throttling.
-  - **Misleading Correlation**: Energy draw drops during output declines (downstream effect of safety throttling, not power grid instability).
-  - **Confounder**: Workload RPM naturally elevates temperature on all machines, creating the illusion that speed alone is the problem.
-  - **Missing Evidence**: Initial logs lacked coolant flow measurements and suffered intermittent temperature sensor downtime on Machine M-03.
-  - **Targeted Resolution**: Next-best evidence recommended ultrasonic coolant flow logging, which confirms valve obstruction ($p < 0.0001$), refuting alternative workload and electrical hypotheses.
+**Before:** A plant sees an ~18.5% output decline. Energy draw falls too,
+and RPM correlates with temperature, so the obvious suspects are the power
+grid and machine speed.
+**After:** The tool tests competing hypotheses, flags that coolant flow data
+is missing, recommends collecting it, and the new evidence (p < 0.0001)
+points to a sticking coolant valve on machine M-03 and rules out the power
+and workload explanations.
 
----
 
 ## 🧪 Testing & Verification
 
-The platform includes 16 automated tests covering:
-- Ingestion (CSV, JSON, missing values, constant columns, unit conflicts)
-- Join key detection & fusion
-- Cohen's $d$, 95% Confidence Intervals, and Controlled Regression Confounder attenuation
-- Shannon entropy and Information Gain calculations
-- Constrained budget optimization
-- End-to-end API lifecycle and closed-loop memory updates
+The repo includes **44 backend tests** (pytest) and **4 frontend tests**
+covering ingestion and validation, join-key detection and fusion, effect
+sizes, confidence intervals and confounder attenuation, entropy and
+information gain, budget optimization, auth and security, sessions, and the
+end-to-end investigation lifecycle.
 
-Run tests with:
 ```bash
 python -m pytest backend/tests/ -v
 ```
 
----
 
-## ⚡ Quick Start
+python - <<'EOF'
+p = "README.md"
+t = open(p, encoding="utf-8", errors="ignore").read()
+t = t.split("\x00")[0].rstrip()   # drop everything from the first NUL byte
+t = t.rstrip("#").rstrip() + "\n"  # drop the dangling '#'
+open(p, "w", encoding="utf-8").write(t)
+EOF
 
-### 1. Launch the Server
-```bash
-python run.py
+
+- **LLM (Gemini):** proposes candidate hypotheses and writes plain-language
+  explanations from the computed statistics. Numbers are never generated by
+  the model. Without `GEMINI_API_KEY`, the app falls back to a deterministic
+  explainer.
 ```
 Open **[http://localhost:8000](http://localhost:8000)** in your browser to experience the REVERSE AI 2.0 workspace.
 
@@ -95,4 +88,3 @@ If running Vite live development server:
 cd frontend
 npm run dev
 ```
-Proxy routes all `/api` calls directly to FastAPI on port 8000.

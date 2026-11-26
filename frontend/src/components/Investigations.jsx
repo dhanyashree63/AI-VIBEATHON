@@ -210,14 +210,14 @@ export default function Investigations({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111625] shadow-xl overflow-hidden">
             <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Edit Investigation</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t('edit_inv_title')}</h3>
               <button onClick={() => setEditingItem(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <form onSubmit={handleSaveEdit} className="p-5 space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Name</label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">{t('name_label')}</label>
                 <input
                   type="text"
                   value={editTitle}
@@ -227,7 +227,7 @@ export default function Investigations({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Description</label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">{t('modal_desc_label')}</label>
                 <textarea
                   rows={3}
                   value={editDesc}
@@ -245,7 +245,7 @@ export default function Investigations({
                   disabled={isMutating}
                   className="px-4 py-1.5 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-medium disabled:opacity-50"
                 >
-                  {isMutating ? 'Saving...' : 'Save Changes'}
+                  {isMutating ? t('saving_btn') : t('save_changes_btn')}
                 </button>
               </div>
             </form>
@@ -256,7 +256,7 @@ export default function Investigations({
       {deletingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111625] shadow-xl p-5 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Delete Investigation?</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('delete_inv_title')}</h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               This will permanently delete <strong className="text-slate-900 dark:text-white">{deletingItem.title}</strong> ({deletingItem.id}), its uploaded datasets, findings, and audit history. This action cannot be undone.
             </p>
@@ -270,7 +270,7 @@ export default function Investigations({
                 disabled={isMutating}
                 className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium disabled:opacity-50 cursor-pointer"
               >
-                {isMutating ? 'Deleting...' : 'Delete Permanently'}
+                {isMutating ? t('deleting_btn') : t('delete_permanently_btn')}
               </button>
             </div>
           </div>
@@ -297,11 +297,11 @@ export default function Investigations({
       : '0';
 
     const progressItems = [
-      { key: 'data_quality', label: 'Data quality check', status: progress?.data_quality || (datasets.length > 0 ? 'completed' : 'pending') },
-      { key: 'pattern_discovery', label: 'Unusual pattern discovery', status: progress?.pattern_discovery || (anomalies.length > 0 ? 'completed' : 'pending') },
-      { key: 'explanation_analysis', label: 'Possible explanation analysis', status: progress?.explanation_analysis || (hypotheses.length > 0 ? 'completed' : 'pending') },
-      { key: 'evidence_evaluation', label: 'Evidence evaluation', status: progress?.evidence_evaluation || (hypotheses.length > 0 ? 'completed' : 'pending') },
-      { key: 'next_steps', label: 'Recommended next steps', status: progress?.next_steps || (recommendations.length > 0 ? 'completed' : 'pending') },
+      { key: 'data_quality', label: t('wf_1_title'), status: progress?.data_quality || (datasets.length > 0 ? 'completed' : 'pending') },
+      { key: 'pattern_discovery', label: t('wf_2_title'), status: progress?.pattern_discovery || (anomalies.length > 0 ? 'completed' : 'pending') },
+      { key: 'explanation_analysis', label: t('wf_3_title'), status: progress?.explanation_analysis || (hypotheses.length > 0 ? 'completed' : 'pending') },
+      { key: 'evidence_evaluation', label: t('comp_title'), status: progress?.evidence_evaluation || (hypotheses.length > 0 ? 'completed' : 'pending') },
+      { key: 'next_steps', label: t('wf_4_title'), status: progress?.next_steps || (recommendations.length > 0 ? 'completed' : 'pending') },
     ];
 
     const tabs = [
@@ -335,7 +335,7 @@ export default function Investigations({
                 title="Open in separate browser tab"
               >
                 <ExternalLink className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>Inspect</span>
+                <span>{t('inspect_btn')}</span>
               </button>
             )}
             <button
@@ -344,7 +344,7 @@ export default function Investigations({
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-indigo-400 transition cursor-pointer"
             >
               <Pencil className="w-3.5 h-3.5" />
-              <span>Edit</span>
+              <span>{t('edit_btn')}</span>
             </button>
             <button
               type="button"
@@ -353,7 +353,7 @@ export default function Investigations({
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-amber-400 transition cursor-pointer"
             >
               {inv.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
-              <span>{inv.status === 'archived' ? 'Restore' : 'Archive'}</span>
+              <span>{inv.status === 'archived' ? t('restore_btn') : t('archive_btn')}</span>
             </button>
             <button
               type="button"
@@ -361,7 +361,7 @@ export default function Investigations({
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#161C2E] border border-slate-200 dark:border-slate-700 text-xs font-medium text-rose-600 dark:text-rose-400 hover:border-rose-400 transition cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete</span>
+              <span>{t('delete_btn')}</span>
             </button>
           </div>
         </div>
@@ -375,7 +375,7 @@ export default function Investigations({
                 onClick={handleRunAnalysis}
                 className="px-3 py-1 rounded bg-rose-600 text-white font-medium shrink-0"
               >
-                Retry
+                {t('retry_btn')}
               </button>
             )}
           </div>
@@ -429,7 +429,7 @@ export default function Investigations({
                   ) : (
                     <Play className="w-3.5 h-3.5" />
                   )}
-                  <span>{isAnalyzing || inv.status === 'processing' ? 'Running Analysis...' : 'Run Analysis'}</span>
+                  <span>{isAnalyzing || inv.status === 'processing' ? t('running_analysis') : t('run_analysis')}</span>
                 </button>
               )}
 
@@ -475,10 +475,10 @@ export default function Investigations({
             <div className="rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Investigation Progress
+                  {t('inv_progress')}
                 </h2>
                 <span className="font-mono text-[11px] text-slate-400">
-                  Stage: {inv.analysis_stage || 'idle'}
+                  {t('stage_label')}: {inv.analysis_stage || 'idle'}
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
@@ -521,40 +521,40 @@ export default function Investigations({
             {/* KPI Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div onClick={() => setSubTab('discoveries')} className="rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 p-4 hover:border-indigo-400 transition cursor-pointer">
-                <div className="text-xs text-slate-500 dark:text-slate-400">Discovered Shift</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{t('discovered_shift')}</div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1 font-mono">
                   {topAnomaly ? `${topAnomaly.percentage_change > 0 ? '+' : ''}${topAnomaly.percentage_change}%` : '—'}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-mono truncate">
-                  {topAnomaly ? `${topAnomaly.metric} · p=${topAnomaly.p_value}` : 'Not analyzed yet'}
+                  {topAnomaly ? `${topAnomaly.metric} · p=${topAnomaly.p_value}` : '—'}
                 </div>
               </div>
 
               <div className="rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 p-4">
-                <div className="text-xs text-slate-500 dark:text-slate-400">Connected Datasets</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{t('connected_datasets')}</div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1 font-mono">{datasets.length}</div>
                 <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
-                  Avg Quality: {avgQuality}%
+                  {t('avg_quality')}: {avgQuality}%
                 </div>
               </div>
 
               <div onClick={() => setSubTab('explanations')} className="rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 p-4 hover:border-indigo-400 transition cursor-pointer">
-                <div className="text-xs text-slate-500 dark:text-slate-400">Leading Hypothesis</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{t('leading_hypothesis')}</div>
                 <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1 font-mono">
                   {topHypothesis ? `${Math.round(topHypothesis.strength_score * 100)}%` : '—'}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
-                  {topHypothesis?.title || 'Not evaluated yet'}
+                  {topHypothesis?.title || '—'}
                 </div>
               </div>
 
               <div onClick={() => setSubTab('next_evidence')} className="rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/70 p-4 hover:border-indigo-500 transition cursor-pointer">
-                <div className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Next-Best Evidence</div>
+                <div className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{t('next_best_evidence_card')}</div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1 font-mono">
                   {topRecommendation ? `+${topRecommendation.expected_information_gain_bits} bits` : '—'}
                 </div>
                 <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
-                  {topRecommendation ? `-${topRecommendation.expected_uncertainty_reduction_pct}% uncertainty` : 'Pending analysis'}
+                  {topRecommendation ? `-${topRecommendation.expected_uncertainty_reduction_pct}% ${t('uncertainty_label')}` : '—'}
                 </div>
               </div>
             </div>
@@ -715,32 +715,40 @@ export default function Investigations({
               onChange={(e) => setSortBy(e.target.value)}
               className="bg-slate-50 dark:bg-[#0B0F1A] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200"
             >
-              <option value="updated_at">Last Updated</option>
-              <option value="created_at">Created Date</option>
+              <option value="updated_at">{t('sort_updated')}</option>
+              <option value="created_at">{t('sort_created')}</option>
             </select>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
               className="bg-slate-50 dark:bg-[#0B0F1A] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200"
             >
-              <option value="desc">Newest</option>
-              <option value="asc">Oldest</option>
+              <option value="desc">{t('sort_newest')}</option>
+              <option value="asc">{t('sort_oldest')}</option>
             </select>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 dark:border-slate-800">
-          {['All', 'Draft', 'Ready', 'Processing', 'Completed', 'Failed', 'Archived'].map((st) => (
+          {[
+            { id: 'All', label: t('filter_all') },
+            { id: 'Draft', label: t('status_draft') },
+            { id: 'Ready', label: t('status_ready') },
+            { id: 'Processing', label: t('status_processing') },
+            { id: 'Completed', label: t('status_completed') },
+            { id: 'Failed', label: t('status_failed') },
+            { id: 'Archived', label: t('status_archived') }
+          ].map((st) => (
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
+              key={st.id}
+              onClick={() => setStatusFilter(st.id)}
               className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
-                statusFilter === st
+                statusFilter === st.id
                   ? 'bg-[#4F46E5] text-white'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              {st}
+              {st.label}
             </button>
           ))}
         </div>

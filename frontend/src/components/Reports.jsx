@@ -10,7 +10,7 @@ import {
   Printer,
   FileSpreadsheet
 } from 'lucide-react';
-import { API_BASE, getReport } from '../api';
+import { getReport } from '../api';
 import StatusBadge from './StatusBadge';
 import EmptyState from './EmptyState';
 import { useI18n } from '../context/I18nContext';
@@ -56,7 +56,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
 
   const handleDownloadCsv = () => {
     if (!inv?.id) return;
-    window.open(`${API_BASE}/investigations/${encodeURIComponent(inv.id)}/report?format=csv`, '_blank');
+    window.open(`/api/investigations/${encodeURIComponent(inv.id)}/report?format=csv`, '_blank');
   };
 
   const handlePrintPdf = () => {
@@ -158,7 +158,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
           <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                {activeView === 'simple' ? 'Executive Summary (Simple View)' : 'Technical Dossier'}
+                {activeView === 'simple' ? t('exec_summary') : t('tech_dossier')}
               </span>
               <span className="font-mono text-xs text-slate-400">{report.investigation_id}</span>
             </div>
@@ -180,7 +180,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
           <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-3">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <span>Unusual Patterns Discovered ({report.anomalies_discovered?.length || 0})</span>
+              <span>{t('unusual_patterns_discovered')} ({report.anomalies_discovered?.length || 0})</span>
             </h3>
             <div className="space-y-2.5">
               {(report.anomalies_discovered || []).map((a) => (
@@ -201,7 +201,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
           <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-3">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Possible Explanations &amp; Evidence ({report.competing_explanations?.length || 0})</span>
+              <span>{t('possible_explanations_evidence')} ({report.competing_explanations?.length || 0})</span>
             </h3>
             <div className="space-y-3">
               {(report.competing_explanations || []).map((h) => (
@@ -219,13 +219,13 @@ export default function Reports({ investigation, investigations = [], onSelectIn
                     </div>
                   )}
                   {h.supporting_evidence?.[0] && (
-                    <div className="text-emerald-700 dark:text-emerald-400"><strong>Supporting:</strong> {h.supporting_evidence[0]}</div>
+                    <div className="text-emerald-700 dark:text-emerald-400"><strong>{t('supporting_label')}:</strong> {h.supporting_evidence[0]}</div>
                   )}
                   {h.contradicting_evidence?.[0] && (
-                    <div className="text-rose-700 dark:text-rose-400"><strong>Contradicting:</strong> {h.contradicting_evidence[0]}</div>
+                    <div className="text-rose-700 dark:text-rose-400"><strong>{t('contradicting_label')}:</strong> {h.contradicting_evidence[0]}</div>
                   )}
                   {h.missing_evidence?.[0] && (
-                    <div className="text-amber-700 dark:text-amber-400"><strong>Missing:</strong> {h.missing_evidence[0]}</div>
+                    <div className="text-amber-700 dark:text-amber-400"><strong>{t('missing_label')}:</strong> {h.missing_evidence[0]}</div>
                   )}
                 </div>
               ))}
@@ -235,7 +235,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
           <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-3">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Compass className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Recommended Next Steps ({report.next_best_evidence_recommendations?.length || 0})</span>
+              <span>{t('recommended_next_steps')} ({report.next_best_evidence_recommendations?.length || 0})</span>
             </h3>
             <div className="space-y-2.5">
               {(report.next_best_evidence_recommendations || []).map((r) => (
@@ -253,7 +253,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
           {/* Limitations & Uncertainty (Preserved in BOTH Simple and Technical Views) */}
           {report.limitations?.length > 0 && (
             <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-xs space-y-1.5">
-              <div className="font-semibold text-amber-800 dark:text-amber-300">Uncertainty &amp; Limitations</div>
+              <div className="font-semibold text-amber-800 dark:text-amber-300">{t('uncertainty_limitations')}</div>
               <ul className="list-disc pl-4 space-y-1 text-amber-800/90 dark:text-amber-200/90">
                 {report.limitations.map((lim, i) => <li key={i}>{lim}</li>)}
               </ul>
@@ -262,7 +262,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
 
           {activeView === 'technical' && report.statistical_methods?.length > 0 && (
             <div className="p-5 rounded-xl bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
-              <div className="font-semibold text-slate-900 dark:text-white">Statistical Methods &amp; Sources</div>
+              <div className="font-semibold text-slate-900 dark:text-white">{t('stat_methods_sources')}</div>
               <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
                 {report.statistical_methods.map((m, i) => <li key={i}>{m}</li>)}
               </ul>
