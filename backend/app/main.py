@@ -100,6 +100,11 @@ else:
             from backend.app.api.endpoints import router as loaded_router
             init_db()
             app.include_router(loaded_router, prefix=settings.API_PREFIX)
+            # Keep SPA catch-all route at the very end so GET /api/* routes always match first
+            spa_routes = [r for r in app.router.routes if getattr(r, "path", None) == "/{full_path:path}"]
+            for r in spa_routes:
+                app.router.routes.remove(r)
+                app.router.routes.append(r)
             api_router = loaded_router
             _SCI_READY = True
             logger.info("Scientific stack installed and full API router mounted.")
