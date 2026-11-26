@@ -10,7 +10,7 @@ import {
   Printer,
   FileSpreadsheet
 } from 'lucide-react';
-import { getReport } from '../api';
+import { API_BASE, getReport } from '../api';
 import StatusBadge from './StatusBadge';
 import EmptyState from './EmptyState';
 import { useI18n } from '../context/I18nContext';
@@ -56,7 +56,7 @@ export default function Reports({ investigation, investigations = [], onSelectIn
 
   const handleDownloadCsv = () => {
     if (!inv?.id) return;
-    window.open(`/api/investigations/${encodeURIComponent(inv.id)}/report?format=csv`, '_blank');
+    window.open(`${API_BASE}/investigations/${encodeURIComponent(inv.id)}/report?format=csv`, '_blank');
   };
 
   const handlePrintPdf = () => {

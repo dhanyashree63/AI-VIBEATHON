@@ -1,4 +1,7 @@
-const API_BASE = '/api';
+export const API_BASE =
+  typeof window !== 'undefined' && window.location.hostname.endsWith('.onslate.in')
+    ? 'https://reverse-ai-2-50048086021.development.catalystappsail.in/api'
+    : '/api';
 const TOKEN_KEY = 'reverse_ai_token';
 
 export function getAuthToken() {

@@ -11,6 +11,7 @@ import NewInvestigationModal from './components/NewInvestigationModal';
 import OnboardingWizard from './components/OnboardingWizard';
 import AuthModal from './components/AuthModal';
 import {
+  API_BASE,
   fetchInvestigations,
   fetchInvestigation,
   loadDemoScenario,
@@ -61,7 +62,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
-    fetch('/api/health')
+    fetch(`${API_BASE}/health`)
       .then((res) => {
         if (!res.ok) setBackendOffline(true);
       })

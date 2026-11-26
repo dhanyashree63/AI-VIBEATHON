@@ -1,4 +1,8 @@
 import logging
+import os
+import subprocess
+import sys
+import threading
 import time
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request
@@ -8,14 +12,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 from backend.app.core.config import settings, BASE_DIR
 from backend.app.engine.database import init_db
-from backend.app.api.endpoints import router as api_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("reverse_ai")
 
-# Initialize database schemas
-init_db()
+_SCI_READY = False
+try:
+    from backend.app.api.endpoints import router as api_router
+    init_db()
+    _SCI_READY = True
+except ImportError as _imp_err:
+    logger.warning(f"Scientific packages not yet available ({_imp_err}); booting in fast-start mode.")
+    api_router = None
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -68,8 +77,36 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-# Include API Router
-app.include_router(api_router, prefix=settings.API_PREFIX)
+# Include API Router (or warm-up background installer on minimal runtime)
+if _SCI_READY and api_router is not None:
+    app.include_router(api_router, prefix=settings.API_PREFIX)
+else:
+    @app.get(f"{settings.API_PREFIX}/health")
+    def warmup_health():
+        return {"status": "healthy" if _SCI_READY else "warming_up", "version": settings.VERSION}
+
+    def _background_install_scientific_stack():
+        global _SCI_READY, api_router
+        pkg_dir = "/tmp/reverse_ai_pkgs"
+        os.makedirs(pkg_dir, exist_ok=True)
+        if pkg_dir not in sys.path:
+            sys.path.insert(0, pkg_dir)
+        try:
+            logger.info("Installing scientific stack (numpy, pandas, scipy, scikit-learn) in background...")
+            subprocess.check_call([
+                sys.executable, "-m", "pip", "install", "--no-cache-dir",
+                "-t", pkg_dir, "numpy>=1.26.0", "pandas>=2.2.0", "scipy>=1.13.0", "scikit-learn>=1.5.0"
+            ])
+            from backend.app.api.endpoints import router as loaded_router
+            init_db()
+            app.include_router(loaded_router, prefix=settings.API_PREFIX)
+            api_router = loaded_router
+            _SCI_READY = True
+            logger.info("Scientific stack installed and full API router mounted.")
+        except Exception as exc:
+            logger.error(f"Background scientific stack install failed: {exc}", exc_info=True)
+
+    threading.Thread(target=_background_install_scientific_stack, daemon=True).start()
 
 # Static frontend distribution serving
 DIST_DIR = BASE_DIR.parent / "frontend" / "dist"
